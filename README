@@ -1,0 +1,7 @@
+// generate_otp
+brew services start redis - Shoul started:
+
+
+run app cmd:
+
+uvicorn src.main:app --reload
