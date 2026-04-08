@@ -1,124 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text
-from src.models.types import SwitchUser, User
-from src.models.types import RequestStatusMaster
-from src.models.types import UrgencyLevel
-from src.db.session import get_db
-from src.models.types import UserType
-from src.models.types import TypeDonor
-from src.models.types import Gender
-from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/types", 
-    tags=["Types"], 
+    prefix="/api/v1/admin", 
+    tags=["Admin"], 
     # dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("/users", response_model=list[dict])
-async def get_users(
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return [{"id": u.id, "name": u.name} for u in users]
+from src.models.types import User, UserType
+from src.db.session import get_db
+from src.core.dependencies import get_current_user_id
 
-@router.get("/user-types", response_model=list[dict])
-async def get_user_types(
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(UserType))
-    user_types = result.scalars().all()
-    return [
-        {"id": ut.id, "name": ut.name} for ut in user_types
-    ]
+from fastapi import Query
 
-@router.get("/donor-types", response_model=list[dict])
-async def get_donor_types(
-    db: AsyncSession = Depends(get_db),
+@router.get("/admin-requests-filters/{status_id}/{category_id}")
+async def get_filtered_requests(
+    status_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    food_category_id: Optional[int] = Query(None, description="Food subcategory: 1=cooked, 2=daily, 3=grocery"),
+    db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(TypeDonor))
-    donor_types = result.scalars().all()
-    return [
-        {"id": dt.id, "name": dt.name} for dt in donor_types
-    ]
-
-# Example FastAPI endpoint
-
-@router.get("/genders", response_model=list[dict])
-async def get_genders(
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(Gender))
-    genders = result.scalars().all()
-    return [{"id": g.id, "gender_name": g.gender_name} for g in genders]
-
-# Switch User endpoints (for testing purposes)
-@router.post("/switch-users", response_model=dict)
-async def create_switch_user(
-    user_id: int,
-    switched_to_type: int,
-    db: AsyncSession = Depends(get_db),
-):
-    new_switch = SwitchUser(
-        user_id=user_id,
-        switched_to_type=switched_to_type
-    )
-    db.add(new_switch)
-    await db.commit()
-    await db.refresh(new_switch)
-    return {
-        "id": new_switch.id,
-        "user_id": new_switch.user_id,
-        "switched_to_type": new_switch.switched_to_type,
-        "switched_at": new_switch.switched_at.isoformat()
-    }
-
-# Endpoint to get all switch user records (for testing purposes)
-@router.get("/switch-users/{user_id}", response_model=list[dict])
-async def get_switch_users(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user_id))
-    switch_users = result.scalars().all()
-    return [
-        {
-            "id": su.id,
-            "user_id": su.user_id,
-            "switched_to_type": su.switched_to_type,
-            "switched_at": su.switched_at.isoformat()
-        }
-        for su in switch_users
-    ]
-
-@router.get("/request-status-master", response_model=list[dict])
-async def get_request_status_master(
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(RequestStatusMaster))
-    request_statuses = result.scalars().all()
-    return [{"id": rs.id, "name": rs.name} for rs in request_statuses]
-
-@router.get("/urgency-levels", response_model=list[dict])
-async def get_urgency_levels(
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(UrgencyLevel))
-    urgency_levels = result.scalars().all()
-    return [{"id": ul.id, "name": ul.name} for ul in urgency_levels]
-
-@router.get("/user-full-data/{user_id}")
-async def get_all_user_data(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-  
-    # SHELTER
-    shelter_q = await db.execute(text("""
-    SELECT 
+    # Shelter
+    shelter_q = text("""
+        SELECT 
         sr.id,
         sr.user_id,
 
@@ -169,13 +77,13 @@ async def get_all_user_data(
     LEFT JOIN shelter_duration_options sdo 
     ON sb.duration_option_id = sdo.id
 
-    WHERE sr.user_id = :user_id
-    """), {"user_id": user_id})
+    WHERE
+        (:status_id IS NULL OR sr.status_id = :status_id)
+        AND (:category_id IS NULL OR sr.category_id = :category_id)
+    """)
 
-    shelter = shelter_q.fetchall()
-
-    # SPORTS
-    sports_q = await db.execute(text("""
+    # SPORTS:
+    sports_q = text("""
         SELECT 
             sr.id,
             sr.user_id,
@@ -206,28 +114,26 @@ async def get_all_user_data(
             ON sr.category_id = rc.id
 
         LEFT JOIN request_status_master rsm 
-            ON sr.id = rsm.id
+            ON srb.status_id = rsm.id
 
         LEFT JOIN urgency_levels ul 
-            ON sr.id = ul.id
+            ON srb.urgency_id = ul.id
 
         LEFT JOIN gender g 
             ON srb.gender_id = g.id
 
         LEFT JOIN playing_levels pl 
-            ON srb.id = pl.id
+            ON srb.playing_level_id = pl.id
 
         LEFT JOIN sports_categories sc 
-            ON srb.id = sc.id
+            ON srb.sports_category_id = sc.id
+        WHERE (:status_id IS NULL OR srb.status_id = :status_id)
+        AND (:category_id IS NULL OR sr.category_id = :category_id)
+    """)
 
-        WHERE sr.user_id = :user_id
-            """), {"user_id": user_id})
-
-    sports = sports_q.fetchall()
-
-    # MEDICAL
-    medical_q = await db.execute(text("""
-       SELECT 
+    #medical:
+    medical_q = text(""" 
+        SELECT 
             mr.id,
             mr.user_id,
 
@@ -280,14 +186,13 @@ async def get_all_user_data(
         LEFT JOIN urgency_levels ul 
             ON mr.urgency_id = ul.id
 
-        WHERE mr.user_id = :user_id;
-    """), {"user_id": user_id})
+        WHERE (:status_id IS NULL OR mr.status_id = :status_id)
+        AND (:category_id IS NULL OR mr.category_id = :category_id)
+    """)
 
-    medical = medical_q.fetchall()
-
-    # EDUCATION
-    edu_q = await db.execute(text("""
-    SELECT 
+    #Education:
+    education_q = text(""" 
+        SELECT 
         er.id,
         er.user_id,
 
@@ -333,14 +238,13 @@ async def get_all_user_data(
 
     LEFT JOIN education_support_types est 
         ON es.education_support_type_id = est.id
+	
+    WHERE (:status_id IS NULL OR er.status_id = :status_id)
+        AND (:category_id IS NULL OR er.category_id = :category_id)
+    """)
 
-    WHERE er.user_id = :user_id;
-    """), {"user_id": user_id})
-
-    education = edu_q.fetchall()
-
-    # CLOTHES
-    clothes_q = await db.execute(text("""
+    #Clothes:
+    clothes_q = text(""" 
         SELECT 
             cr.id,
             cr.user_id,
@@ -394,15 +298,14 @@ async def get_all_user_data(
 
         LEFT JOIN urgency_levels ul2 
             ON cb.urgency_level_id = ul2.id
+            
+		WHERE (:status_id IS NULL OR cr.status_id = :status_id)
+        AND (:category_id IS NULL OR cr.category_id = :category_id)
+    """)
 
-        WHERE cr.user_id = :user_id;
-    """), {"user_id": user_id})
-
-    clothes = clothes_q.fetchall()
-
-    # FOOD - COOKED FOOD
-    cooked_q = await db.execute(text("""
-    SELECT 
+    #Food:
+    cooked_food_q = text(""" 
+        SELECT 
         cf.id,
         cf.user_id,
 
@@ -441,12 +344,11 @@ async def get_all_user_data(
     LEFT JOIN request_status_master rsm ON cf.status_id = rsm.id
     LEFT JOIN urgency_levels ul ON cf.urgency_id = ul.id
 
-    WHERE cf.user_id = :user_id
-    """), {"user_id": user_id})
+    WHERE (:status_id IS NULL OR cf.status_id = :status_id)
+        AND (:category_id IS NULL OR cf.food_request_category_id = :category_id)
+    """)
 
-    cooked = cooked_q.fetchall()
-
-    daily_q = await db.execute(text("""
+    daily_meal_q = text(""" 
         SELECT 
         dm.id,
         dm.user_id,
@@ -492,14 +394,13 @@ async def get_all_user_data(
 
     LEFT JOIN request_status_master rsm ON dm.status_id = rsm.id
     LEFT JOIN urgency_levels ul ON dm.urgency_id = ul.id
+    
+    WHERE (:status_id IS NULL OR dm.status_id = :status_id)
+        AND (:category_id IS NULL OR dm.food_request_category_id = :category_id)
+    """)
 
-    WHERE dm.user_id = :user_id;
-        """), {"user_id": user_id})
-
-    daily = daily_q.fetchall()
-
-    grocery_q = await db.execute(text("""
-    SELECT 
+    grocery_q = text(""" 
+        SELECT 
         gr.id,
         gr.user_id,
 
@@ -547,31 +448,115 @@ async def get_all_user_data(
 
     LEFT JOIN urgency_levels ul 
         ON gr.urgency_id = ul.id
+        
+    WHERE (:status_id IS NULL OR gr.status_id = :status_id)
+        AND (:category_id IS NULL OR gr.food_request_category_id = :category_id)
+    """)
 
-    WHERE gr.user_id = :user_id
-    """), {"user_id": user_id})
-
-    grocery = grocery_q.fetchall()
-
-    return {
-        "user_id": user_id,
-        "data": {
-            "shelter": [dict(row._mapping) for row in shelter],
-            "sports": [dict(row._mapping) for row in sports],
-            "medical": [dict(row._mapping) for row in medical],
-            "education": [dict(row._mapping) for row in education],
-            "clothes": [dict(row._mapping) for row in clothes],
-            "food": {
-                "cooked_food": [dict(row._mapping) for row in cooked],
-                "daily_meal": [dict(row._mapping) for row in daily],
-                "grocery": [dict(row._mapping) for row in grocery]
-            }
-        }
-    }
-
-    
-
+    food_categories = {1}  # Add more food category_ids as needed
+    clothes_categories = {2}  # Add more clothes category_ids as needed
+    education_categories = {3}  # Add more education category_ids as needed
+    medical_categories = {4}  # Add more medical category_ids as needed
+    shelter_categories = {5}  # Add more shelter category_ids as needed
+    sports_categories = {6}   # Add more sports category_ids as needed
    
 
+    if category_id in shelter_categories:
+        result = await db.execute(shelter_q, {"status_id": status_id, "category_id": category_id})
+        requests = result.fetchall()
+        return [dict(request._mapping) for request in requests]
+    elif category_id in sports_categories:
+        result = await db.execute(sports_q, {"status_id": status_id, "category_id": category_id})
+        requests = result.fetchall()
+        return [dict(request._mapping) for request in requests]
+    elif category_id in medical_categories:
+        result = await db.execute(medical_q, {"status_id": status_id, "category_id": category_id})
+        requests = result.fetchall()
+        return [dict(request._mapping) for request in requests]
+    elif category_id in education_categories:
+        result = await db.execute(education_q, {"status_id": status_id, "category_id": category_id})
+        requests = result.fetchall()
+        return [dict(request._mapping) for request in requests]
+    elif category_id in clothes_categories:
+        result = await db.execute(clothes_q, {"status_id": status_id, "category_id": category_id})
+        requests = result.fetchall()
+        return [dict(request._mapping) for request in requests]
+    elif category_id in food_categories:
+        # food_category_id: 1 = cooked, 2 = daily, 3 = grocery
+        if food_category_id == 1:
+            cooked = await db.execute(cooked_food_q, {"status_id": status_id, "category_id": category_id})
+            cooked_rows = cooked.fetchall()
+            return {"food": {"cooked_food": [dict(row._mapping) for row in cooked_rows]}}
+        elif food_category_id == 2:
+            daily = await db.execute(daily_meal_q, {"status_id": status_id, "category_id": None, "food_request_category_id": category_id})
+            daily_rows = daily.fetchall()
+            return {"food": {"daily_meal": [dict(row._mapping) for row in daily_rows]}}
+        elif food_category_id == 3:
+            grocery = await db.execute(grocery_q, {"status_id": status_id, "category_id": None, "food_request_category_id": category_id})
+            grocery_rows = grocery.fetchall()
+            return {"food": {"grocery": [dict(row._mapping) for row in grocery_rows]}}
+        else:
+            cooked = await db.execute(cooked_food_q, {"status_id": status_id, "category_id": category_id})
+            daily = await db.execute(daily_meal_q, {"status_id": status_id, "category_id": None, "food_request_category_id": category_id})
+            grocery = await db.execute(grocery_q, {"status_id": status_id, "category_id": None, "food_request_category_id": category_id})
+            cooked_rows = cooked.fetchall()
+            daily_rows = daily.fetchall()
+            grocery_rows = grocery.fetchall()
+            return {
+                "food": {
+                    "cooked_food": [dict(row._mapping) for row in cooked_rows],
+                    "daily_meal": [dict(row._mapping) for row in daily_rows],
+                    "grocery": [dict(row._mapping) for row in grocery_rows]
+                }
+            }
+    else:
+        return []
 
-    
+@router.post("/admin-approve-reject")
+async def admin_approve_reject(
+    request_id: int = Body(..., description="Request ID"),
+    request_type: str = Body(..., description="Type: shelter, food_cooked, food_daily, food_grocery, clothes, education, medical, sports"),
+    status_id: int = Body(..., description="4 = approve, 5 = reject"),
+    db: AsyncSession = Depends(get_db)
+):
+    if status_id not in [4, 5]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    table_map = {
+        "shelter": "shelter_requests",
+        "clothes": "clothes_requests",
+        "education": "education_requests",
+        "medical": "medical_requests",
+        "sports": "sports_requests",
+        "food_cooked": "food_requests_cooked_food",
+        "food_daily": "food_daily_meal_requests",
+        "food_grocery": "grocery_essentials_requests",
+    }
+
+    table_name = table_map.get(request_type)
+    if not table_name:
+        raise HTTPException(status_code=400, detail="Invalid request type")
+
+    # Check record exists
+    query = text(f"SELECT id FROM {table_name} WHERE id = :id")
+    result = await db.execute(query, {"id": request_id})
+    request = result.fetchone()
+
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Update
+    update_query = text(f"""
+        UPDATE {table_name}
+        SET status_id = :status_id
+        WHERE id = :id
+    """)
+
+    await db.execute(update_query, {
+        "status_id": status_id,
+        "id": request_id
+    })
+
+    await db.commit()
+
+    return {"message": "Status updated successfully"}
