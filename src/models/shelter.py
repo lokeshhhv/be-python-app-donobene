@@ -1,16 +1,40 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Text, func
 from src.db.base import Base
+
+
+class ShelterDurationOptions(Base):
+    __tablename__ = "shelter_duration_options"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+
+class ShelterRequest(Base):
+    __tablename__ = "shelter_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    category_id = Column(Integer, ForeignKey("request_categories.id"), nullable=False)
+
+    request_title = Column(String(255), nullable=False)
+    request_description = Column(Text)
+
+    status_id = Column(Integer, ForeignKey("request_status_master.id", ondelete="SET NULL"))
+    urgency_id = Column(Integer, ForeignKey("urgency_levels.id", ondelete="SET NULL"))
+
+    verified = Column(Boolean, default=False)
+    reject_reason = Column(Text)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 
 class ShelterBeneficiary(Base):
     __tablename__ = "shelter_beneficiaries"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
-    shelter_request_id = Column(
-        Integer,
-        ForeignKey("shelter_requests.id", ondelete="CASCADE"),
-        nullable=False
-    )
+    shelter_request_id = Column(Integer, ForeignKey("shelter_requests.id", ondelete="CASCADE"), nullable=False)
 
     person_name = Column(String(100))
     total_members = Column(Integer)
@@ -26,32 +50,9 @@ class ShelterBeneficiary(Base):
 
     number_of_days = Column(Integer)
 
-    # 📎 Attachments
     verification_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
     damage_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
 
-class ShelterDurationOptions(Base):
-    __tablename__ = "shelter_duration_options"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(100), nullable=False)
-
-class ShelterRequest(Base):
-    __tablename__ = "shelter_requests"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("request_categories.id"), nullable=False)
-
-    request_title = Column(String(255), nullable=False)
-    request_description = Column(String)
-
-    status_id = Column(Integer, ForeignKey("request_status_master.id", ondelete="SET NULL"))
-    urgency_id = Column(Integer, ForeignKey("urgency_levels.id", ondelete="SET NULL"))
-
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 class ShelterRequirementTypes(Base):
     __tablename__ = "shelter_requirement_types"

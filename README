@@ -1,7 +1,199 @@
-// generate_otp
-brew services start redis - Shoul started:
+---------------
+sports payload:
+---------------
+{
+  "user_id": 1,
+  "category_id": 6,
+  "request_title": "Sports Support",
+  "request_description": "Need support",
 
+  "beneficiaries": [
+    {
+      "person_name": "Ravi",
+      "age_group": "18-25",
+      "gender_id": 1,
+      "playing_level_id": 2,
 
-run app cmd:
+      "sports_category_ids": [1],
+      "support_type_ids": [1, 2],
 
-uvicorn src.main:app --reload
+      "achievement": "District player",
+      "amount_requested": 5000,
+      "event_date": "2026-05-10",
+      "institution_name": "ABC College",
+      "phone": "9876543210",
+
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "/uploads/v.pdf"
+      },
+
+      "achievement_document": {
+        "document_type_id": 2,
+        "file_path": "/uploads/a.pdf"
+      },
+
+      "urgency_id": 1,
+      "status_id": 1
+    }
+  ]
+}
+
+---------------
+shelter payload:
+---------------
+{
+  "user_id": 1,
+  "category_id": 5,
+  "request_title": "Shelter Needed",
+  "request_description": "Flood affected family",
+
+  "status_id": 1,
+  "urgency_id": 2,
+
+  "beneficiaries": [
+    {
+      "person_name": "Ravi",
+      "total_members": 4,
+      "special_need_id": 1,
+      "staying_type_id": 2,
+      "current_address": "Chennai",
+      "duration_of_problem": "2 weeks",
+      "requirement_type_id": 1,
+      "duration_option_id": 2,
+      "number_of_days": 10,
+
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "/uploads/verify.pdf"
+      },
+
+      "damage_document": {
+        "document_type_id": 2,
+        "file_path": "/uploads/damage.jpg"
+      }
+    }
+  ]
+}
+
+---------------
+Medical payload:
+---------------
+{
+  "user_id": 1,
+  "category_id": 4,
+  "request_title": "Medical Help Needed",
+  "request_description": "Support required for surgery",
+
+  "status_id": 1,
+  "urgency_id": 2,
+
+  "patients": [
+    {
+      "patient_name": "Ramesh",
+      "age": 45,
+      "gender_id": 1,
+
+      "medical_condition": "Heart Surgery",
+      "blood_group_id": 2,
+      "medical_category_id": 3,
+
+      "hospital_name": "Apollo Hospital",
+      "hospital_address": "Chennai",
+      "doctor_name": "Dr. Kumar",
+
+      "financial_information": "Insurance Partial",
+      "amount_paid": 50000,
+      "amount_requested": 150000,
+      "funds_needed_by": "2026-05-20",
+
+      "contact_information": "9876543210",
+      "emergency_contact_name": "Suresh",
+
+      "support_type_ids": [1, 2, 3],
+
+      "attachment": {
+        "document_type_id": 1,
+        "file_path": "/uploads/report.pdf"
+      },
+      "prescription": {
+        "document_type_id": 2,
+        "file_path": "/uploads/prescription.pdf"
+      },
+      "estimation": {
+        "document_type_id": 3,
+        "file_path": "/uploads/estimate.pdf"
+      }
+    },
+  ]
+}
+
+------------------
+Education payload:
+------------------
+
+{
+  "user_id": 1,
+  "category_id": 8,
+  "request_title": "Education Support Required",
+  "request_description": "Need financial help for students",
+
+  "status_id": 1,
+  "urgency_id": 2,
+
+  "students": [
+    {
+      "person_name": "Arun Kumar",
+      "age": 18,
+      "grade_level": "12th",
+
+      "education_support_type_id": 1,
+      "amount_requested": 50000,
+
+      "institution_name": "ABC Higher Secondary School",
+      "college_id": "SCH12345",
+      "institution_address": "Chennai, Tamil Nadu",
+
+      "contact_person_name": "Principal Rajesh",
+      "contact_person_phone": "9876543210",
+
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "/uploads/mark_sheet.pdf"
+      },
+      "education_support_document": {
+        "document_type_id": 2,
+        "file_path": "/uploads/fee_structure.pdf"
+      }
+    },
+
+    {
+      "person_name": "Priya",
+      "age": 20,
+      "grade_level": "B.Sc Computer Science",
+
+      "education_support_type_id": 2,
+      "amount_requested": 75000,
+
+      "institution_name": "XYZ College",
+      "college_id": "COL56789",
+      "institution_address": "Madurai, Tamil Nadu",
+
+      "contact_person_name": "Admin Office",
+      "contact_person_phone": "9123456780",
+
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "/uploads/id_card.jpg"
+      },
+      "education_support_document": {
+        "document_type_id": 2,
+        "file_path": "/uploads/college_fee.pdf"
+      }
+    }
+  ]
+}
+
+------------------
+Clothes payload:
+------------------

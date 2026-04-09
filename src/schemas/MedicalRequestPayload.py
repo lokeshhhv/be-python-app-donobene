@@ -4,14 +4,22 @@ from decimal import Decimal
 from datetime import date
 
 
-# 🔹 Support Type
-class PatientSupportTypePayload(BaseModel):
-    support_type_id: int
+class AttachmentPayload(BaseModel):
+    document_type_id: int
+    file_path: str
 
 
-# 🔹 Hospital Details
-class HospitalDetailsPayload(BaseModel):
-    hospital_name: str
+class PatientPayload(BaseModel):
+    patient_name: str
+    age: Optional[int] = None
+    gender_id: Optional[int] = None
+
+    medical_condition: Optional[str] = None
+    blood_group_id: Optional[int] = None
+    medical_category_id: Optional[int] = None
+
+    # 🏥 hospital merged
+    hospital_name: Optional[str] = None
     hospital_address: Optional[str] = None
     doctor_name: Optional[str] = None
 
@@ -23,27 +31,15 @@ class HospitalDetailsPayload(BaseModel):
     contact_information: Optional[str] = None
     emergency_contact_name: Optional[str] = None
 
-    attachment_id: Optional[int] = None
-    prescription_id: Optional[int] = None
-    estimation_id: Optional[int] = None
+    # 🔥 JSON
+    support_type_ids: List[int] = []
+
+    # 📎 attachments
+    attachment: Optional[AttachmentPayload] = None
+    prescription: Optional[AttachmentPayload] = None
+    estimation: Optional[AttachmentPayload] = None
 
 
-# 🔹 Patient
-class PatientPayload(BaseModel):
-    patient_name: str
-    age: Optional[int] = None
-    gender_id: Optional[int] = None
-
-    medical_condition: Optional[str] = None
-
-    blood_group_id: Optional[int] = None
-    medical_category_id: Optional[int] = None
-
-    support_types: List[PatientSupportTypePayload]
-    hospital_details: HospitalDetailsPayload
-
-
-# 🔹 Main Medical Request
 class MedicalRequestPayload(BaseModel):
     user_id: int
     category_id: int

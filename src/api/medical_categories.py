@@ -3,15 +3,13 @@ from http.client import HTTPException
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Optional
 
+from src.models.types import Attachment, RequestCategory, User
 from src.models.medical import BloodGroup
 from src.models.medical import MedicalRequestCategory
 from src.models.medical import MedicalSupportType
 from src.db.session import get_db
 
-from src.models.medical import PatientSupportType
-from src.models.medical import HospitalDetails
 from src.models.medical import MedicalRequest
 from src.models.medical import Patient
 from src.schemas import MedicalRequestPayload
@@ -21,7 +19,7 @@ from src.core.dependencies import get_current_user_id
 router = APIRouter(
     prefix="/api/v1/categories",
     tags=["Medical Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 @router.get("/medical-categories", response_model=list[dict])
@@ -49,12 +47,25 @@ async def get_blood_groups(db: AsyncSession = Depends(get_db)):
     ]
 
 
-@router.post("/medical-request", response_model=dict)
+@router.post("/medical-request")
 async def create_medical_request(
     payload: MedicalRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
+
+        async def _exists(model, value: int):
+            result = await db.execute(select(model.id).where(model.id == value))
+            return result.scalar_one_or_none() is not None
+
+        # ✅ Validate main
+        if not await _exists(User, payload.user_id):
+            raise HTTPException(400, "Invalid user_id")
+
+        if not await _exists(RequestCategory, payload.category_id):
+            raise HTTPException(400, "Invalid category_id")
+
+        # ✅ Create request
         new_request = MedicalRequest(
             user_id=payload.user_id,
             category_id=payload.category_id,
@@ -66,75 +77,96 @@ async def create_medical_request(
         db.add(new_request)
         await db.flush()
 
-        for p in payload.patients:
-            new_patient = Patient(
-                medical_request_id=new_request.id,
-                patient_name=p.patient_name,
-                age=p.age,
-                gender_id=p.gender_id,
-                medical_condition=p.medical_condition,
-                blood_group_id=p.blood_group_id,
-                medical_category_id=p.medical_category_id
-            )
-            db.add(new_patient)
-            await db.flush()
+        # ✅ Patients
+        for i, p in enumerate(payload.patients, start=1):
 
-            # support types
-            for st in p.support_types:
-                db.add(
-                    PatientSupportType(
-                        patient_id=new_patient.id,
-                        support_type_id=st.support_type_id
-                    )
+            # 🔥 attachments
+            attachment_id = None
+            prescription_id = None
+            estimation_id = None
+
+            if p.attachment:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=p.attachment.document_type_id,
+                    file_path=p.attachment.file_path
                 )
+                db.add(att)
+                await db.flush()
+                attachment_id = att.id
 
-            # hospital
-            hd = p.hospital_details
+            if p.prescription:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=p.prescription.document_type_id,
+                    file_path=p.prescription.file_path
+                )
+                db.add(att)
+                await db.flush()
+                prescription_id = att.id
+
+            if p.estimation:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=p.estimation.document_type_id,
+                    file_path=p.estimation.file_path
+                )
+                db.add(att)
+                await db.flush()
+                estimation_id = att.id
+
             db.add(
-                HospitalDetails(
-                    patient_id=new_patient.id,
-                    hospital_name=hd.hospital_name,
-                    hospital_address=hd.hospital_address,
-                    doctor_name=hd.doctor_name,
-                    financial_information=hd.financial_information,
-                    amount_paid=hd.amount_paid,
-                    amount_requested=hd.amount_requested,
-                    funds_needed_by=hd.funds_needed_by,
-                    contact_information=hd.contact_information,
-                    emergency_contact_name=hd.emergency_contact_name,
-                    attachment_id=hd.attachment_id,
-                    prescription_id=hd.prescription_id,
-                    estimation_id=hd.estimation_id
+                Patient(
+                    medical_request_id=new_request.id,
+                    patient_name=p.patient_name,
+                    age=p.age,
+                    gender_id=p.gender_id,
+                    medical_condition=p.medical_condition,
+                    blood_group_id=p.blood_group_id,
+                    medical_category_id=p.medical_category_id,
+
+                    hospital_name=p.hospital_name,
+                    hospital_address=p.hospital_address,
+                    doctor_name=p.doctor_name,
+                    financial_information=p.financial_information,
+                    amount_paid=p.amount_paid,
+                    amount_requested=p.amount_requested,
+                    funds_needed_by=p.funds_needed_by,
+                    contact_information=p.contact_information,
+                    emergency_contact_name=p.emergency_contact_name,
+
+                    support_type_ids=p.support_type_ids,
+
+                    attachment_id=attachment_id,
+                    prescription_id=prescription_id,
+                    estimation_id=estimation_id
                 )
             )
 
         await db.commit()
 
-        return {
-            "message": "Medical request created successfully",
-            "request_id": new_request.id
-        }
+        return {"message": "Medical request created", "request_id": new_request.id}
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, str(e))
     
-@router.get("/medical-request", response_model=list[dict])
-async def get_medical_requests(
-    user_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    query = select(MedicalRequest)
+@router.get("/medical-request")
+async def get_medical_requests(db: AsyncSession = Depends(get_db)):
 
-    if user_id:
-        query = query.where(MedicalRequest.user_id == user_id)
-
-    result = await db.execute(query)
+    result = await db.execute(select(MedicalRequest))
     requests = result.scalars().all()
 
     response = []
 
     for r in requests:
+
         patients = (await db.execute(
             select(Patient).where(Patient.medical_request_id == r.id)
         )).scalars().all()
@@ -142,13 +174,6 @@ async def get_medical_requests(
         patient_data = []
 
         for p in patients:
-            supports = (await db.execute(
-                select(PatientSupportType).where(PatientSupportType.patient_id == p.id)
-            )).scalars().all()
-
-            hospital = (await db.execute(
-                select(HospitalDetails).where(HospitalDetails.patient_id == p.id)
-            )).scalars().first()
 
             patient_data.append({
                 "patient_name": p.patient_name,
@@ -157,19 +182,24 @@ async def get_medical_requests(
                 "medical_condition": p.medical_condition,
                 "blood_group_id": p.blood_group_id,
                 "medical_category_id": p.medical_category_id,
-                "support_types": [
-                    {"support_type_id": s.support_type_id} for s in supports
-                ],
-                "hospital_details": {
-                    "hospital_name": hospital.hospital_name if hospital else None,
-                    "attachment_id": hospital.attachment_id if hospital else None
-                }
+
+                "hospital_name": p.hospital_name,
+                "doctor_name": p.doctor_name,
+                "amount_requested": float(p.amount_requested) if p.amount_requested else None,
+
+                "support_type_ids": p.support_type_ids,
+
+                "attachment_id": p.attachment_id,
+                "prescription_id": p.prescription_id,
+                "estimation_id": p.estimation_id
             })
 
         response.append({
             "id": r.id,
             "user_id": r.user_id,
             "request_title": r.request_title,
+            "verified": r.verified,
+            "reject_reason": r.reject_reason,
             "patients": patient_data
         })
 

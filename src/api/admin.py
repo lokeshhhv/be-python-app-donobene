@@ -517,10 +517,15 @@ async def admin_approve_reject(
     request_id: int = Body(..., description="Request ID"),
     request_type: str = Body(..., description="Type: shelter, food_cooked, food_daily, food_grocery, clothes, education, medical, sports"),
     status_id: int = Body(..., description="4 = approve, 5 = reject"),
+    verified: bool = Body(..., description="Verified checkbox"),
+    reject_reason: Optional[str] = Body(None, description="Reason for rejection"),
     db: AsyncSession = Depends(get_db)
 ):
     if status_id not in [4, 5]:
         raise HTTPException(status_code=400, detail="Invalid status")
+
+    if status_id == 5 and (not reject_reason or not reject_reason.strip()):
+        raise HTTPException(status_code=400, detail="Reject reason required when rejecting")
 
     table_map = {
         "shelter": "shelter_requests",
@@ -546,14 +551,19 @@ async def admin_approve_reject(
         raise HTTPException(status_code=404, detail="Request not found")
 
     # Update
+    # Assumes columns 'status_id', 'verified', and 'reject_reason' exist in all tables. Adjust if needed.
     update_query = text(f"""
         UPDATE {table_name}
-        SET status_id = :status_id
+        SET status_id = :status_id,
+            verified = :verified,
+            reject_reason = :reject_reason
         WHERE id = :id
     """)
 
     await db.execute(update_query, {
         "status_id": status_id,
+        "verified": verified,
+        "reject_reason": reject_reason if status_id == 5 else None,
         "id": request_id
     })
 

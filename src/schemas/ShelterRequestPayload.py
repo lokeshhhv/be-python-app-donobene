@@ -1,5 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional
+
+
+class AttachmentPayload(BaseModel):
+    document_type_id: int
+    file_path: str
 
 
 class ShelterBeneficiaryPayload(BaseModel):
@@ -14,21 +19,22 @@ class ShelterBeneficiaryPayload(BaseModel):
 
     requirement_type_id: Optional[int] = None
     duration_option_id: Optional[int] = None
-
     number_of_days: Optional[int] = None
 
-    verification_document_id: Optional[int] = None
-    damage_document_id: Optional[int] = None
+    verification_document: Optional[AttachmentPayload] = None
+    damage_document: Optional[AttachmentPayload] = None
 
 
 class ShelterRequestPayload(BaseModel):
     user_id: int
     category_id: int
-
     request_title: str
-    request_description: Optional[str] = None
+    request_description: Optional[str]
 
-    status_id: Optional[int] = None
-    urgency_id: Optional[int] = None
+    status_id: Optional[int]
+    urgency_id: Optional[int]
 
-    beneficiaries: List[ShelterBeneficiaryPayload] = Field(default_factory=list)
+    verified: Optional[bool] = False
+    reject_reason: Optional[str] = None
+
+    beneficiaries: List[ShelterBeneficiaryPayload]

@@ -57,13 +57,17 @@ class Gender(Base):
 
 class Attachment(Base):
     __tablename__ = "attachments"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    request_id = Column(Integer, ForeignKey("clothes_requests.id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("request_categories.id"), nullable=False)
-    document_type_id = Column(Integer, ForeignKey("document_types.id"), nullable=False)
+    request_id = Column(Integer, nullable=False)
+    category_id = Column(Integer, nullable=False)
+
+    document_type_id = Column(Integer, nullable=False)
     file_path = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    created_at = Column(DateTime, server_default=func.now())
 
 class TypeDonor(Base):
     __tablename__ = "type_donors"

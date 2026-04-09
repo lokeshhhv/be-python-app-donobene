@@ -1,9 +1,8 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.types import Attachment, RequestCategory, User
 from src.models.shelter import ShelterBeneficiary
 from src.models.shelter import ShelterRequest
 from src.schemas.ShelterRequestPayload import ShelterRequestPayload
@@ -19,7 +18,7 @@ from src.core.dependencies import get_current_user_id
 router = APIRouter(
     prefix="/api/v1/shelter-categories",
     tags=["Shelter Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 # ===========================
@@ -52,26 +51,86 @@ async def get_shelter_duration_options(db: AsyncSession = Depends(get_db)):
 # =========================
 # ✅ POST
 # =========================
-@router.post("/shelter-request", response_model=dict)
+@router.post("/shelter-request")
 async def create_shelter_request(
     payload: ShelterRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # 1️⃣ Main request
+
+        async def _exists(model, value: int):
+            result = await db.execute(select(model.id).where(model.id == value))
+            return result.scalar_one_or_none() is not None
+
+        # ✅ Validate main
+        if not await _exists(User, payload.user_id):
+            raise HTTPException(400, "Invalid user_id")
+
+        if not await _exists(RequestCategory, payload.category_id):
+            raise HTTPException(400, "Invalid category_id")
+
+        # ✅ Create request
         new_request = ShelterRequest(
             user_id=payload.user_id,
             category_id=payload.category_id,
             request_title=payload.request_title,
             request_description=payload.request_description,
             status_id=payload.status_id,
-            urgency_id=payload.urgency_id
+            urgency_id=payload.urgency_id,
+            verified=payload.verified,
+            reject_reason=payload.reject_reason
         )
+
         db.add(new_request)
         await db.flush()
 
-        # 2️⃣ Beneficiaries
-        for ben in payload.beneficiaries:
+        # ✅ Beneficiaries
+        for i, ben in enumerate(payload.beneficiaries, start=1):
+
+            # 🔥 VALIDATIONS
+            if ben.special_need_id and not await _exists(ShelterSpecialNeeds, ben.special_need_id):
+                raise HTTPException(400, f"Invalid special_need_id at beneficiaries[{i}]")
+
+            if ben.staying_type_id and not await _exists(ShelterStayingTypes, ben.staying_type_id):
+                raise HTTPException(400, f"Invalid staying_type_id at beneficiaries[{i}]")
+
+            if ben.requirement_type_id and not await _exists(ShelterRequirementTypes, ben.requirement_type_id):
+                raise HTTPException(400, f"Invalid requirement_type_id at beneficiaries[{i}]")
+
+            if ben.duration_option_id and not await _exists(ShelterDurationOptions, ben.duration_option_id):
+                raise HTTPException(400, f"Invalid duration_option_id at beneficiaries[{i}]")
+
+            if ben.duration_option_id and not ben.number_of_days:
+                raise HTTPException(400, "number_of_days required when duration_option_id is given")
+
+            # 🔥 ATTACHMENTS
+            verification_id = None
+            damage_id = None
+
+            if ben.verification_document:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=ben.verification_document.document_type_id,
+                    file_path=ben.verification_document.file_path
+                )
+                db.add(att)
+                await db.flush()
+                verification_id = att.id
+
+            if ben.damage_document:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=ben.damage_document.document_type_id,
+                    file_path=ben.damage_document.file_path
+                )
+                db.add(att)
+                await db.flush()
+                damage_id = att.id
+
             db.add(
                 ShelterBeneficiary(
                     shelter_request_id=new_request.id,
@@ -84,42 +143,32 @@ async def create_shelter_request(
                     requirement_type_id=ben.requirement_type_id,
                     duration_option_id=ben.duration_option_id,
                     number_of_days=ben.number_of_days,
-                    verification_document_id=ben.verification_document_id,
-                    damage_document_id=ben.damage_document_id
+                    verification_document_id=verification_id,
+                    damage_document_id=damage_id
                 )
             )
 
         await db.commit()
 
-        return {
-            "message": "Shelter request created successfully",
-            "request_id": new_request.id
-        }
+        return {"message": "Created successfully", "request_id": new_request.id}
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(500, str(e))
 
 # =========================
 # ✅ GET
 # =========================
-@router.get("/shelter-request", response_model=list[dict])
-async def get_shelter_requests(
-    user_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    query = select(ShelterRequest)
+@router.get("/shelter-request")
+async def get_shelter_requests(db: AsyncSession = Depends(get_db)):
 
-    if user_id:
-        query = query.where(ShelterRequest.user_id == user_id)
-
-    result = await db.execute(query)
+    result = await db.execute(select(ShelterRequest))
     requests = result.scalars().all()
 
     response = []
 
     for r in requests:
+
         ben_result = await db.execute(
             select(ShelterBeneficiary).where(
                 ShelterBeneficiary.shelter_request_id == r.id
@@ -127,8 +176,26 @@ async def get_shelter_requests(
         )
         beneficiaries = ben_result.scalars().all()
 
-        ben_data = [
-            {
+        ben_data = []
+
+        for b in beneficiaries:
+
+            verification_doc = None
+            damage_doc = None
+
+            if b.verification_document_id:
+                res = await db.execute(select(Attachment).where(Attachment.id == b.verification_document_id))
+                att = res.scalar_one_or_none()
+                if att:
+                    verification_doc = {"id": att.id, "file_path": att.file_path}
+
+            if b.damage_document_id:
+                res = await db.execute(select(Attachment).where(Attachment.id == b.damage_document_id))
+                att = res.scalar_one_or_none()
+                if att:
+                    damage_doc = {"id": att.id, "file_path": att.file_path}
+
+            ben_data.append({
                 "id": b.id,
                 "person_name": b.person_name,
                 "total_members": b.total_members,
@@ -137,11 +204,9 @@ async def get_shelter_requests(
                 "requirement_type_id": b.requirement_type_id,
                 "duration_option_id": b.duration_option_id,
                 "number_of_days": b.number_of_days,
-                "verification_document_id": b.verification_document_id,
-                "damage_document_id": b.damage_document_id
-            }
-            for b in beneficiaries
-        ]
+                "verification_document": verification_doc,
+                "damage_document": damage_doc
+            })
 
         response.append({
             "id": r.id,
@@ -151,6 +216,8 @@ async def get_shelter_requests(
             "request_description": r.request_description,
             "status_id": r.status_id,
             "urgency_id": r.urgency_id,
+            "verified": r.verified,
+            "reject_reason": r.reject_reason,
             "beneficiaries": ben_data
         })
 

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.types import User
+from src.models.types import Attachment, RequestStatusMaster, UrgencyLevel, User
 from src.models.types import RequestCategory
 from src.models.types import Gender
 from src.schemas.SportsRequestPayload import SportsRequestPayload
@@ -17,15 +17,12 @@ from src.models.sports import PlayingLevel
 
 from src.models.sports import SportsRequest
 from src.models.sports import SportsRequestBeneficiary
-from src.models.sports import (
-    SportsRequestBeneficiarySupportType,
-)
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
     prefix="/api/v1/categories",
     tags=["Sports Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 # ===========================
@@ -57,70 +54,89 @@ async def get_playing_levels(db: AsyncSession = Depends(get_db)):
 # ✅ POST API
 # ===========================
 
-@router.post("/sports-request", response_model=dict)
+@router.post("/sports-request")
 async def create_sports_request(
     payload: SportsRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Validate top-level foreign keys before insert to return clear API errors.
-        async def _exists(model, value: int) -> bool:
+
+        async def _exists(model, value: int):
             result = await db.execute(select(model.id).where(model.id == value))
             return result.scalar_one_or_none() is not None
 
+        # ===========================
+        # ✅ VALIDATION
+        # ===========================
+
         if not await _exists(User, payload.user_id):
-            raise HTTPException(status_code=400, detail=f"Invalid user_id: {payload.user_id}")
+            raise HTTPException(400, "Invalid user_id")
 
         if not await _exists(RequestCategory, payload.category_id):
-            raise HTTPException(status_code=400, detail=f"Invalid category_id: {payload.category_id}")
+            raise HTTPException(400, "Invalid category_id")
 
-        for index, ben in enumerate(payload.beneficiaries, start=1):
-            if ben.gender_id is not None and not await _exists(Gender, ben.gender_id):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid gender_id at beneficiaries[{index}]: {ben.gender_id}",
-                )
+        # ===========================
+        # ✅ CREATE REQUEST
+        # ===========================
 
-            if not await _exists(PlayingLevel, ben.playing_level_id):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Invalid playing_level_id at beneficiaries[{index}]: "
-                        f"{ben.playing_level_id}"
-                    ),
-                )
-
-            if not await _exists(SportsCategory, ben.sports_category_id):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Invalid sports_category_id at beneficiaries[{index}]: "
-                        f"{ben.sports_category_id}"
-                    ),
-                )
-
-            for sup_index, support in enumerate(ben.support_types, start=1):
-                if not await _exists(SportsSupportType, support.support_type_id):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Invalid support_type_id at beneficiaries[{index}]"
-                            f".support_types[{sup_index}]: {support.support_type_id}"
-                        ),
-                    )
-
-        # 1️⃣ Create main request
         new_request = SportsRequest(
             user_id=payload.user_id,
             category_id=payload.category_id,
             request_title=payload.request_title,
             request_description=payload.request_description
         )
+
         db.add(new_request)
         await db.flush()
 
-        # 2️⃣ Beneficiaries
-        for ben in payload.beneficiaries:
+        # ===========================
+        # ✅ BENEFICIARIES
+        # ===========================
+
+        for i, ben in enumerate(payload.beneficiaries, start=1):
+
+            # ---- validations ----
+            if ben.gender_id and not await _exists(Gender, ben.gender_id):
+                raise HTTPException(400, f"Invalid gender_id at beneficiaries[{i}]")
+
+            if not await _exists(PlayingLevel, ben.playing_level_id):
+                raise HTTPException(400, f"Invalid playing_level_id at beneficiaries[{i}]")
+
+            # ===========================
+            # 🔥 CREATE ATTACHMENTS
+            # ===========================
+
+            verification_id = None
+            achievement_id = None
+
+            if ben.verification_document:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=ben.verification_document.document_type_id,
+                    file_path=ben.verification_document.file_path
+                )
+                db.add(att)
+                await db.flush()
+                verification_id = att.id
+
+            if ben.achievement_document:
+                att = Attachment(
+                    user_id=payload.user_id,
+                    request_id=new_request.id,
+                    category_id=payload.category_id,
+                    document_type_id=ben.achievement_document.document_type_id,
+                    file_path=ben.achievement_document.file_path
+                )
+                db.add(att)
+                await db.flush()
+                achievement_id = att.id
+
+            # ===========================
+            # ✅ CREATE BENEFICIARY
+            # ===========================
+
             new_ben = SportsRequestBeneficiary(
                 sports_request_id=new_request.id,
                 person_name=ben.person_name,
@@ -128,25 +144,23 @@ async def create_sports_request(
                 gender_id=ben.gender_id,
                 playing_level_id=ben.playing_level_id,
                 achievement=ben.achievement,
-                sports_category_id=ben.sports_category_id,
                 amount_requested=ben.amount_requested,
                 event_date=ben.event_date,
                 institution_name=ben.institution_name,
                 phone=ben.phone,
-                verification_document_id=ben.verification_document_id,
-                achievement_document_id=ben.achievement_document_id
+                urgency_id=ben.urgency_id,
+                status_id=ben.status_id,
+                verification_document_id=verification_id,
+                achievement_document_id=achievement_id,
+                sports_category_ids=ben.sports_category_ids,
+                support_type_ids=ben.support_type_ids
             )
-            db.add(new_ben)
-            await db.flush()
 
-            # 3️⃣ Support types
-            for s in ben.support_types:
-                db.add(
-                    SportsRequestBeneficiarySupportType(
-                        beneficiary_id=new_ben.id,
-                        support_type_id=s.support_type_id
-                    )
-                )
+            db.add(new_ben)
+
+        # ===========================
+        # ✅ COMMIT
+        # ===========================
 
         await db.commit()
 
@@ -157,40 +171,28 @@ async def create_sports_request(
 
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid foreign key reference in sports request payload",
-        )
-
-    except HTTPException:
-        await db.rollback()
-        raise
+        raise HTTPException(400, "Foreign key error")
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(500, str(e))
 
 # ===========================
 # ✅ GET API (LIST)
 # ===========================
 
-@router.get("/sports-request", response_model=list[dict])
-async def get_sports_requests(
-    user_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    query = select(SportsRequest)
+@router.get("/sports-request")
+async def get_sports_requests(db: AsyncSession = Depends(get_db)):
 
-    if user_id:
-        query = query.where(SportsRequest.user_id == user_id)
-
-    result = await db.execute(query)
+    # ✅ Fetch all requests
+    result = await db.execute(select(SportsRequest))
     requests = result.scalars().all()
 
     response = []
 
     for r in requests:
+
+        # ✅ Fetch beneficiaries
         ben_result = await db.execute(
             select(SportsRequestBeneficiary).where(
                 SportsRequestBeneficiary.sports_request_id == r.id
@@ -201,12 +203,32 @@ async def get_sports_requests(
         ben_data = []
 
         for b in beneficiaries:
-            sup_result = await db.execute(
-                select(SportsRequestBeneficiarySupportType).where(
-                    SportsRequestBeneficiarySupportType.beneficiary_id == b.id
+
+            # 🔥 fetch attachments
+            verification_doc = None
+            achievement_doc = None
+
+            if b.verification_document_id:
+                res = await db.execute(
+                    select(Attachment).where(Attachment.id == b.verification_document_id)
                 )
-            )
-            supports = sup_result.scalars().all()
+                att = res.scalar_one_or_none()
+                if att:
+                    verification_doc = {
+                        "id": att.id,
+                        "file_path": att.file_path
+                    }
+
+            if b.achievement_document_id:
+                res = await db.execute(
+                    select(Attachment).where(Attachment.id == b.achievement_document_id)
+                )
+                att = res.scalar_one_or_none()
+                if att:
+                    achievement_doc = {
+                        "id": att.id,
+                        "file_path": att.file_path
+                    }
 
             ben_data.append({
                 "id": b.id,
@@ -214,18 +236,17 @@ async def get_sports_requests(
                 "age_group": b.age_group,
                 "gender_id": b.gender_id,
                 "playing_level_id": b.playing_level_id,
-                "sports_category_id": b.sports_category_id,
+                "sports_category_ids": b.sports_category_ids,
+                "support_type_ids": b.support_type_ids,
                 "achievement": b.achievement,
-                "amount_requested": float(b.amount_requested) if b.amount_requested else None,
+                "amount_requested": b.amount_requested,
                 "event_date": b.event_date,
                 "institution_name": b.institution_name,
                 "phone": b.phone,
-                "verification_document_id": b.verification_document_id,
-                "achievement_document_id": b.achievement_document_id,
-                "support_types": [
-                    {"support_type_id": s.support_type_id}
-                    for s in supports
-                ]
+
+                # 🔥 attachments added
+                "verification_document": verification_doc,
+                "achievement_document": achievement_doc
             })
 
         response.append({
@@ -234,6 +255,8 @@ async def get_sports_requests(
             "category_id": r.category_id,
             "request_title": r.request_title,
             "request_description": r.request_description,
+            "verified": r.verified,
+            "reject_reason": r.reject_reason,
             "beneficiaries": ben_data
         })
 

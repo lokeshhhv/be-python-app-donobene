@@ -2,8 +2,11 @@ from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
 
+class AttachmentPayload(BaseModel):
+    document_type_id: int
+    file_path: str
 
-# 🔹 Student Payload
+
 class StudentPayload(BaseModel):
     person_name: str
     age: int
@@ -19,11 +22,11 @@ class StudentPayload(BaseModel):
     contact_person_name: Optional[str] = None
     contact_person_phone: Optional[str] = None
 
-    verification_document_id: Optional[int] = None
-    education_support_document_id: int
+    # 🔥 new way
+    verification_document: Optional[AttachmentPayload] = None
+    education_support_document: Optional[AttachmentPayload] = None
 
 
-# 🔹 Main Education Request Payload
 class EducationRequestPayload(BaseModel):
     user_id: int
     category_id: int

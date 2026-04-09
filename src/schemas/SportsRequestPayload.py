@@ -3,37 +3,39 @@ from typing import List, Optional
 from datetime import date
 
 
-class SupportTypePayload(BaseModel):
-    support_type_id: int
+class AttachmentPayload(BaseModel):
+    document_type_id: int
+    file_path: str
 
 
 class SportsBeneficiaryPayload(BaseModel):
-    person_name: Optional[str] = None
-    age_group: Optional[str] = None
-    gender_id: Optional[int] = None
+    person_name: Optional[str]
+    age_group: Optional[str]
+    gender_id: Optional[int]
 
     playing_level_id: int
-    sports_category_id: int
 
-    achievement: Optional[str] = None
+    sports_category_ids: List[int]
+    support_type_ids: List[int]
 
-    amount_requested: Optional[float] = None
-    event_date: Optional[date] = None
+    achievement: Optional[str]
+    amount_requested: Optional[int]
+    event_date: Optional[date]
 
-    institution_name: Optional[str] = None
-    phone: Optional[str] = None
+    institution_name: Optional[str]
+    phone: Optional[str]
 
-    verification_document_id: Optional[int] = None
-    achievement_document_id: Optional[int] = None
+    verification_document: Optional[AttachmentPayload]
+    achievement_document: Optional[AttachmentPayload]
 
-    support_types: List[SupportTypePayload] = Field(default_factory=list)
+    urgency_id: Optional[int]
+    status_id: Optional[int]
 
 
 class SportsRequestPayload(BaseModel):
     user_id: int
     category_id: int
-
     request_title: str
-    request_description: Optional[str] = None
+    request_description: Optional[str]
 
     beneficiaries: List[SportsBeneficiaryPayload]
