@@ -36,6 +36,9 @@ class SportsRequest(Base):
     verified = Column(Boolean, default=False)
     reject_reason = Column(Text)
 
+    urgency_id = Column(Integer, ForeignKey("urgency_levels.id"))
+    status_id = Column(Integer, ForeignKey("request_status_master.id"))
+    
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -64,8 +67,6 @@ class SportsRequestBeneficiary(Base):
     verification_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
     achievement_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
 
-    urgency_id = Column(Integer, ForeignKey("urgency_levels.id"))
-    status_id = Column(Integer, ForeignKey("request_status_master.id"))
 
     sports_category_ids = Column(JSON)
     support_type_ids = Column(JSON)

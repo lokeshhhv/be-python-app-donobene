@@ -160,9 +160,9 @@ async def create_shelter_request(
 # ✅ GET
 # =========================
 @router.get("/shelter-request")
-async def get_shelter_requests(db: AsyncSession = Depends(get_db)):
+async def get_shelter_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
-    result = await db.execute(select(ShelterRequest))
+    result = await db.execute(select(ShelterRequest).where(ShelterRequest.user_id == user_id))
     requests = result.scalars().all()
 
     response = []

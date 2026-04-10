@@ -10,7 +10,6 @@ from src.models.food import FoodMealType
 from src.models.food import FoodTimeSlot
 from src.models.food import FoodUrgencyLevel
 from src.models.food import DeliveryRequired
-from src.models.types import User
 from src.db.session import get_db
 from src.schemas.FoodRequestPayload import CookedFoodCreate, CookedFoodResponse, FoodDailyMealRequestPayload, FoodRequestCategoryResponse, FoodTypeResponse, GroceryItemMasterResponse, GroceryPriorityLevelResponse, GroceryRequestPayload, GroceryUnitOptionResponse
 from src.schemas.FoodRequestPayload import FoodMealTypeResponse
@@ -26,7 +25,7 @@ from src.schemas.FoodRequestPayload import FoodDurationResponse
 router = APIRouter(
     prefix="/api/v1/categories", 
     tags=["Food Categories"], 
-    dependencies=[Depends(get_current_user_id)]
+    # dependencies=[Depends(get_current_user_id)]
 )
 
 @router.get("/food-types", response_model=list[FoodTypeResponse])
@@ -133,8 +132,13 @@ async def create_cooked_food(cooked_food: CookedFoodCreate, db: Session = Depend
     return [new_cooked_food]
 
 @router.get("/food-cooked", response_model=list[CookedFoodResponse])
-async def get_cooked_foods(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodRequestsCookedFood))
+async def get_cooked_foods(user_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = select(FoodRequestsCookedFood)
+
+    if user_id:
+        query = query.where(FoodRequestsCookedFood.user_id == user_id)
+
+    result = await db.execute(query)
     cooked_foods = result.scalars().all()
     return cooked_foods
 
@@ -148,8 +152,13 @@ async def create_daily_meal_request(daily_meal_request: FoodDailyMealRequestPayl
     return [new_daily_meal_request]
 
 @router.get("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
-async def get_daily_meal_requests(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodDailyMealRequest))
+async def get_daily_meal_requests( user_id: Optional[int] = None,db: Session = Depends(get_db)):
+    query = select(FoodDailyMealRequest)
+
+    if user_id:
+        query = query.where(FoodDailyMealRequest.user_id == user_id)
+
+    result = await db.execute(query)
     daily_meal_requests = result.scalars().all()
     return daily_meal_requests
 

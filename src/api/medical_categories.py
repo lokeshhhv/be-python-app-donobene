@@ -158,9 +158,9 @@ async def create_medical_request(
         raise HTTPException(500, str(e))
     
 @router.get("/medical-request")
-async def get_medical_requests(db: AsyncSession = Depends(get_db)):
+async def get_medical_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
-    result = await db.execute(select(MedicalRequest))
+    result = await db.execute(select(MedicalRequest).where(MedicalRequest.user_id == user_id))
     requests = result.scalars().all()
 
     response = []

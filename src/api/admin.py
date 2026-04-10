@@ -1,9 +1,21 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text
+
+
+from src.models.shelter import ShelterBeneficiary, ShelterRequest
+from src.models.types import Attachment
+from src.models.sports import SportsRequest, SportsRequestBeneficiary
+from src.models.clothes import ClothesRequest, ClothesRequestBeneficiaries, ClothesRequestBeneficiariesSizes
+from src.models.medical import MedicalRequest, Patient
+from src.models.education import EducationRequest, EducationRequestStudents
+from src.db.session import get_db
+from src.core.dependencies import get_current_user_id
+
+from fastapi import Query
 
 router = APIRouter(
     prefix="/api/v1/admin", 
@@ -11,11 +23,6 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)]
 )
 
-from src.models.types import User, UserType
-from src.db.session import get_db
-from src.core.dependencies import get_current_user_id
-
-from fastapi import Query
 
 @router.get("/admin-requests-filters/{status_id}/{category_id}")
 async def get_filtered_requests(
@@ -453,36 +460,283 @@ async def get_filtered_requests(
         AND (:category_id IS NULL OR gr.food_request_category_id = :category_id)
     """)
 
-    food_categories = {1}  # Add more food category_ids as needed
-    clothes_categories = {2}  # Add more clothes category_ids as needed
-    education_categories = {3}  # Add more education category_ids as needed
-    medical_categories = {4}  # Add more medical category_ids as needed
-    shelter_categories = {5}  # Add more shelter category_ids as needed
-    sports_categories = {6}   # Add more sports category_ids as needed
+    food_categories = {1} 
+    clothes_categories = {2} 
+    education_categories = {3} 
+    medical_categories = {4} 
+    shelter_categories = {5} 
+    sports_categories = {6}   
    
 
     if category_id in shelter_categories:
-        result = await db.execute(shelter_q, {"status_id": status_id, "category_id": category_id})
-        requests = result.fetchall()
-        return [dict(request._mapping) for request in requests]
+        query = select(ShelterRequest)
+        if status_id is not None:
+            query = query.where(ShelterRequest.status_id == status_id)
+        if category_id is not None:
+            query = query.where(ShelterRequest.category_id == category_id)
+        result = await db.execute(query)
+        requests = result.scalars().all()
+
+        response = []
+        for r in requests:
+
+            ben_result = await db.execute(
+                select(ShelterBeneficiary).where(
+                    ShelterBeneficiary.shelter_request_id == r.id
+                )
+            )
+            beneficiaries = ben_result.scalars().all()
+
+            ben_data = []
+
+            for b in beneficiaries:
+
+                verification_doc = None
+                damage_doc = None
+
+                if b.verification_document_id:
+                    res = await db.execute(select(Attachment).where(Attachment.id == b.verification_document_id))
+                    att = res.scalar_one_or_none()
+                    if att:
+                        verification_doc = {"id": att.id, "file_path": att.file_path}
+
+                if b.damage_document_id:
+                    res = await db.execute(select(Attachment).where(Attachment.id == b.damage_document_id))
+                    att = res.scalar_one_or_none()
+                    if att:
+                        damage_doc = {"id": att.id, "file_path": att.file_path}
+
+                ben_data.append({
+                    "id": b.id,
+                    "person_name": b.person_name,
+                    "total_members": b.total_members,
+                    "special_need_id": b.special_need_id,
+                    "staying_type_id": b.staying_type_id,
+                    "requirement_type_id": b.requirement_type_id,
+                    "duration_option_id": b.duration_option_id,
+                    "number_of_days": b.number_of_days,
+                    "verification_document": verification_doc,
+                    "damage_document": damage_doc
+                })
+
+            response.append({
+                "id": r.id,
+                "user_id": r.user_id,
+                "category_id": r.category_id,
+                "request_title": r.request_title,
+                "request_description": r.request_description,
+                "status_id": r.status_id,
+                "urgency_id": r.urgency_id,
+                "verified": r.verified,
+                "reject_reason": r.reject_reason,
+                "beneficiaries": ben_data
+            })
+        return response
     elif category_id in sports_categories:
-        result = await db.execute(sports_q, {"status_id": status_id, "category_id": category_id})
-        requests = result.fetchall()
-        return [dict(request._mapping) for request in requests]
+        query = select(SportsRequest)
+        if status_id is not None:
+            query = query.where(SportsRequest.status_id == status_id)
+        if category_id is not None:
+            query = query.where(SportsRequest.category_id == category_id)
+        result = await db.execute(query)
+        requests = result.scalars().all()
+
+        response = []
+        for r in requests:
+
+            ben_result = await db.execute(
+                select(SportsRequestBeneficiary).where(
+                    SportsRequestBeneficiary.sports_request_id == r.id
+                )
+            )
+            beneficiaries = ben_result.scalars().all()
+
+            ben_list = []
+            for ben in beneficiaries:
+                
+                ben_list.append({
+                "id": ben.id,
+                "person_name": ben.person_name,
+                "age_group": ben.age_group,
+                "gender_id": ben.gender_id,
+                "playing_level_id": ben.playing_level_id,
+                "sports_category_ids": ben.sports_category_ids,
+                "support_type_ids": ben.support_type_ids,
+                "achievement": ben.achievement,
+                "amount_requested": ben.amount_requested,
+                "event_date": ben.event_date,
+                "institution_name": ben.institution_name,
+                "phone": ben.phone,
+            })
+            response.append({
+                "id": r.id,
+                "user_id": r.user_id,
+                "category_id": r.category_id,
+                "request_title": r.request_title,
+                "request_description": r.request_description,
+                "status_id": r.status_id,
+                "urgency_id": r.urgency_id,
+                "verified": r.verified,
+                "reject_reason": r.reject_reason,
+                "beneficiaries": ben_list
+            })
+        return response
     elif category_id in medical_categories:
-        result = await db.execute(medical_q, {"status_id": status_id, "category_id": category_id})
-        requests = result.fetchall()
-        return [dict(request._mapping) for request in requests]
+        query = select(MedicalRequest)
+        if status_id is not None:
+            query = query.where(MedicalRequest.status_id == status_id)
+        if category_id is not None:
+            query = query.where(MedicalRequest.category_id == category_id)
+        result = await db.execute(query)
+        requests = result.scalars().all()
+
+        response = []
+        for r in requests:
+            patients = (await db.execute(
+                select(Patient).where(Patient.medical_request_id == r.id)
+            )).scalars().all()
+            patient_data = []
+            for p in patients:
+
+                patient_data.append({
+                "patient_name": p.patient_name,
+                "age": p.age,
+                "gender_id": p.gender_id,
+                "medical_condition": p.medical_condition,
+                "blood_group_id": p.blood_group_id,
+                "medical_category_id": p.medical_category_id,
+
+                "hospital_name": p.hospital_name,
+                "doctor_name": p.doctor_name,
+                "amount_requested": float(p.amount_requested) if p.amount_requested else None,
+
+                "support_type_ids": p.support_type_ids,
+
+                "attachment_id": p.attachment_id,
+                "prescription_id": p.prescription_id,
+                "estimation_id": p.estimation_id
+            })
+
+            response.append({
+            "id": r.id,
+            "user_id": r.user_id,
+            "request_title": r.request_title,
+            "verified": r.verified,
+            "reject_reason": r.reject_reason,
+            "patients": patient_data
+        })
+        return response
     elif category_id in education_categories:
-        result = await db.execute(education_q, {"status_id": status_id, "category_id": category_id})
-        requests = result.fetchall()
-        return [dict(request._mapping) for request in requests]
+        query = select(EducationRequest)
+        if status_id is not None:
+            query = query.where(EducationRequest.status_id == status_id)
+        if category_id is not None:
+            query = query.where(EducationRequest.category_id == category_id)
+        result = await db.execute(query)
+        requests = result.scalars().all()
+        
+        response = []
+        for r in requests:
+            stu_result = await db.execute(
+                select(EducationRequestStudents).where(
+                    EducationRequestStudents.education_request_id == r.id
+                )
+            )
+            students = stu_result.scalars().all()
+
+            student_data = [
+                {
+                    "id": s.id,
+                    "person_name": s.person_name,
+                    "age": s.age,
+                    "grade_level": s.grade_level,
+                    "education_support_type_id": s.education_support_type_id,
+                    "amount_requested": float(s.amount_requested) if s.amount_requested else None,
+                    "institution_name": s.institution_name,
+                    "college_id": s.college_id,
+                    "institution_address": s.institution_address,
+                    "contact_person_name": s.contact_person_name,
+                    "contact_person_phone": s.contact_person_phone,
+                    "verification_document_id": s.verification_document_id,
+                    "education_support_document_id": s.education_support_document_id
+                }
+                for s in students
+            ]
+
+            response.append({
+                "id": r.id,
+                "user_id": r.user_id,
+                "category_id": r.category_id,
+                "request_title": r.request_title,
+                "request_description": r.request_description,
+                "status_id": r.status_id,
+                "urgency_id": r.urgency_id,
+                "verified": r.verified,
+                "reject_reason": r.reject_reason,
+                "created_at": r.created_at,
+                "updated_at": r.updated_at,
+                "students": student_data
+            }) 
+        return response
     elif category_id in clothes_categories:
-        result = await db.execute(clothes_q, {"status_id": status_id, "category_id": category_id})
-        requests = result.fetchall()
-        return [dict(request._mapping) for request in requests]
+        query = select(ClothesRequest)
+        if status_id is not None:
+            query = query.where(ClothesRequest.status_id == status_id)
+        if category_id is not None:
+            query = query.where(ClothesRequest.category_id == category_id)
+        result = await db.execute(query)
+        requests = result.scalars().all()
+        response = []
+        for r in requests:
+            ben_result = await db.execute(
+                select(ClothesRequestBeneficiaries).where(
+                    ClothesRequestBeneficiaries.clothes_request_id == r.id
+                )
+            )
+            beneficiaries = ben_result.scalars().all()
+            ben_list = []
+            for ben in beneficiaries:
+                size_result = await db.execute(
+                    select(ClothesRequestBeneficiariesSizes).where(
+                        ClothesRequestBeneficiariesSizes.beneficiary_id == ben.id
+                    )
+                )
+                sizes = size_result.scalars().all()
+
+                ben_list.append({
+                    "id": ben.id,
+                    "person_name": ben.person_name,
+                    "age_group": ben.age_group,
+                    "gender_preference": ben.gender_preference,
+                    "clothing_category_id": ben.clothing_category_id,
+                    "need_by_date": ben.need_by_date,
+                    "urgency_level_id": ben.urgency_level_id,
+                    "verification_document_id": ben.verification_document_id,
+                    "beneficiary_photo_id": ben.beneficiary_photo_id,
+                    "sizes": [
+                        {
+                            "id": s.id,
+                            "clothing_type": s.clothing_type,
+                            "size_id": s.size_id,
+                            "quantity": s.quantity
+                        }
+                        for s in sizes
+                    ]
+                })
+            response.append({
+                "id": r.id,
+                "user_id": r.user_id,
+                "category_id": r.category_id,
+                "request_title": r.request_title,
+                "request_description": r.request_description,
+                "status_id": r.status_id,
+                "urgency_id": r.urgency_id,
+                "beneficiaries": ben_list,
+            })
+        return response
     elif category_id in food_categories:
         # food_category_id: 1 = cooked, 2 = daily, 3 = grocery
+        response = []
         if food_category_id == 1:
             cooked = await db.execute(cooked_food_q, {"status_id": status_id, "category_id": category_id})
             cooked_rows = cooked.fetchall()

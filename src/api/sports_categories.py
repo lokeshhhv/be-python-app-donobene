@@ -182,10 +182,10 @@ async def create_sports_request(
 # ===========================
 
 @router.get("/sports-request")
-async def get_sports_requests(db: AsyncSession = Depends(get_db)):
+async def get_sports_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
     # ✅ Fetch all requests
-    result = await db.execute(select(SportsRequest))
+    result = await db.execute(select(SportsRequest).where(SportsRequest.user_id == user_id))
     requests = result.scalars().all()
 
     response = []

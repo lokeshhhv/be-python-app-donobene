@@ -197,3 +197,168 @@ Education payload:
 ------------------
 Clothes payload:
 ------------------
+
+{
+  "user_id": 1,
+  "category_id": 2,
+  "request_title": "Clothes Request for Summer Drive",
+  "request_description": "Distributing clothes for children in need",
+  "status_id": 1,
+  "urgency_id": 2,
+  "beneficiaries": [
+    {
+      "person_name": "Arun Kumar",
+      "age_group": 3,
+      "gender_preference": 1,
+      "clothing_category_id": 5,
+      "need_by_date": "2026-04-15",
+      "urgency_level_id": 2,
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "attachments/verification_arun.pdf"
+      },
+      "beneficiary_photo": {
+        "document_type_id": 2,
+        "file_path": "attachments/photo_arun.jpg"
+      },
+      "sizes": [
+        {
+          "clothing_type": "Shirt",
+          "size_id": 1,
+          "quantity": 2
+        },
+        {
+          "clothing_type": "Pants",
+          "size_id": 2,
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "person_name": "Priya Sharma",
+      "age_group": 2,
+      "gender_preference": 2,
+      "clothing_category_id": 5,
+      "need_by_date": "2026-04-20",
+      "urgency_level_id": 1,
+      "verification_document": {
+        "document_type_id": 1,
+        "file_path": "attachments/verification_priya.pdf"
+      },
+      "beneficiary_photo": {
+        "document_type_id": 2,
+        "file_path": "attachments/photo_priya.jpg"
+      },
+      "sizes": [
+        {
+          "clothing_type": "Dress",
+          "size_id": 3,
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}
+
+------------------
+Food payload: - Grocery 
+------------------
+
+{
+  "user_id": 1,
+  "food_request_category_id": 3,
+  "status_id": 1,
+  "urgency_id": 2,
+  "request_title": "Grocery Essentials for Family",
+  "request_description": "Need groceries for a family of four",
+  "frequency_id": 1,
+  "address": "789 Market Lane",
+  "landmark": "Near Grocery Store",
+  "delivery_required": true,
+  "items": [
+    {
+      "item_master_id": 1,
+      "custom_item_name": "Rice",
+      "quantity": 10,
+      "unit_id": 2,
+      "priority_id": 1
+    },
+    {
+      "item_master_id": 2,
+      "custom_item_name": "Wheat Flour",
+      "quantity": 5,
+      "unit_id": 2,
+      "priority_id": 2
+    }
+  ]
+}
+
+------------------
+Food payload: - Daily Meal 
+------------------
+
+{
+  "user_id": 1,
+  "food_request_category_id": 2,
+  "status_id": 1,
+  "urgency_id": 2,
+  "request_title": "Daily Meal for Students",
+  "request_description": "Requesting daily meals for students",
+  "number_of_people": 30,
+  "age_group_id": 2,
+  "special_need_id": 1,
+  "meal_type_id": 1,
+  "frequency_id": 2,
+  "duration_id": 1,
+  "custom_days": null,
+  "custom_date_range": null,
+  "time_slot_id": 2,
+  "address": "456 School Road",
+  "landmark": "Opposite Library",
+  "delivery_required": false
+}
+
+------------------
+Food payload: - Cooked Food
+------------------
+
+{
+  "user_id": 1,
+  "food_request_category_id": 1,
+  "status_id": 1,
+  "urgency_id": 2,
+  "request_title": "Cooked Food for Event",
+  "request_description": "Need cooked meals for children event",
+  "food_type_id": 1,
+  "meal_type_id": 2,
+  "number_of_people": 50,
+  "plates_required": 50,
+  "required_date": "2026-04-15",
+  "time_slot_id": 3,
+  "urgency_level_id": 2,
+  "address": "123 Main Street",
+  "landmark": "Near City Park",
+  "delivery_required": true
+}
+
+
+// admin-approve-reject:
+
+//Approved:
+
+{
+  "request_id": 1,
+  "request_type": "shelter",
+  "status_id": 4,
+  "verified": true,
+  "reject_reason": null
+}
+// Rejeacted:
+
+{
+  "request_id": 1,
+  "request_type": "shelter", // or "food_cooked", "food_daily", "food_grocery", "clothes", "education", "medical", "sports"
+  "status_id": 5,            // 4 = approve, 5 = reject
+  "verified": true,          // true or false
+  "reject_reason": "Reason for rejection (required if status_id is 5, else can be null)"
+}
