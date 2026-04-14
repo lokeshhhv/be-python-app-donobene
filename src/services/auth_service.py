@@ -88,6 +88,7 @@ async def register_user(payload: RegisterRequest, db: AsyncSession) -> TokenResp
         raise HTTPException(status_code=409, detail="Phone already registered")
 
     hashed_pw = hash_password(payload.password)
+    # 1. Create user first (without attachment_id)
     user = User(
         name=payload.name.strip(),
         email=payload.email,
@@ -100,9 +101,29 @@ async def register_user(payload: RegisterRequest, db: AsyncSession) -> TokenResp
         city=payload.city,
         state=payload.state,
         pincode=payload.pincode,
-        # attachment_id=payload.attachment_id,
         created_at=datetime.utcnow(),
     )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    # 2. If attachment present, create it with user_id, then update user
+    if payload.attachment:
+        from src.models.types import Attachment
+        att = Attachment(
+            user_id=user.id,
+            request_id=0,  # not linked to a request, or set as needed
+            category_id=payload.attachment.get("category_id", 0), #₹ default to 0 if not provided
+            document_type_id=payload.attachment["document_type_id"],
+            file_path=payload.attachment["file_path"]
+        )
+        db.add(att)
+        await db.commit()
+        await db.refresh(att)
+        user.attachment_id = att.id
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
     db.add(user)
     await db.commit()
     await db.refresh(user)

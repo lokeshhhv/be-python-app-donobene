@@ -19,13 +19,52 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("/users", response_model=list[dict])
+@router.get("/current-userdata/{user_id}", response_model=list[dict])
 async def get_users(
+    user_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(User))
+    from src.models.types import Attachment, TypeDonor, UserType
+    result = await db.execute(select(User).where(User.id == user_id))
     users = result.scalars().all()
-    return [{"id": u.id, "name": u.name} for u in users]
+    user_dicts = []
+    for user in users:
+        user_data = {k: v for k, v in user.__dict__.items() if not k.startswith('_')}
+
+        # Remove type_donor_id and donor_type_subtype from response
+        user_data.pop('type_donor_id', None)
+        user_data.pop('donor_type_subtype', None)
+
+        # Bring attachment info if present
+        attachment = None
+        if hasattr(user, 'attachment_id') and user.attachment_id:
+            attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
+            attachment_obj = attach_result.scalar_one_or_none()
+            if attachment_obj:
+                attachment = {k: v for k, v in attachment_obj.__dict__.items() if not k.startswith('_')}
+        if attachment:
+            user_data['attachment'] = attachment
+
+        # Bring type_donor name
+        type_donor_name = None
+        if hasattr(user, 'type_donor_id') and user.type_donor_id:
+            td_result = await db.execute(select(TypeDonor).where(TypeDonor.id == user.type_donor_id))
+            td_obj = td_result.scalar_one_or_none()
+            if td_obj:
+                type_donor_name = td_obj.name
+        user_data['type_donor_name'] = type_donor_name
+
+        # Bring user_type name (donor_type_subtype)
+        user_type_name = None
+        if hasattr(user, 'donor_type_subtype') and user.donor_type_subtype:
+            ut_result = await db.execute(select(UserType).where(UserType.id == user.donor_type_subtype))
+            ut_obj = ut_result.scalar_one_or_none()
+            if ut_obj:
+                user_type_name = ut_obj.name
+        user_data['user_type_name'] = user_type_name
+
+        user_dicts.append(user_data)
+    return user_dicts
 
 @router.get("/user-types", response_model=list[dict])
 async def get_user_types(

@@ -16,7 +16,7 @@ class RegisterRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
-    attachment_id: Optional[int] = None
+    attachment: Optional[dict] = None  # expects {file_path, document_type_id, category_id}
 
     @field_validator("password")
     @classmethod
@@ -55,7 +55,7 @@ class UserInfo(BaseModel):
     state: Optional[str]
     type_donor_id: Optional[int]
     donor_type_subtype: Optional[int]
-    last_logged_as: Optional[str]
+    last_logged_as: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class TokenResponse(BaseModel):
