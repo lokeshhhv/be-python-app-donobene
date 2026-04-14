@@ -1,3 +1,6 @@
+
+uvicorn src.main:app --host 0.0.0.0 --port 8000
+
 ---------------
 User payload:
 ---------------
@@ -5,17 +8,20 @@ User payload:
   "name": "Deepa V",
   "email": "deepa.v@example.com",
   "phone": "9876543210",
-  "password": "Deepa@123",
-  "type_donor_id": 1,
-  "donor_type_subtype": 2,
+  "password": "your_password_here",
+  "type_donor_id": 1,                // (optional if you want to use type_donor_name instead)
+  "donor_type_subtype": 2,           // (optional if you want to use user_type_name instead)
   "organization_name": "Helping Hands Foundation",
   "address": "No. 12, Anna Nagar West",
   "city": "Chennai",
   "state": "Tamil Nadu",
   "pincode": "600040",
-  "attachment_id": 101
+  "attachment": {
+    "document_type_id": 1
+    "file_path": "uploads/profile.jpg",
+    "file_type": "image/jpeg"
+  }
 }
-
 ---------------
 sports payload:
 ---------------

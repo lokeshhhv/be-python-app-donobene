@@ -145,6 +145,7 @@ async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> OTPSentResponse
     if not user:
         raise HTTPException(status_code=404, detail="Phone not registered")
     otp = await generate_otp()
+    print(f"Generated OTP for {payload.phone}: {otp}")  # For testing, remove in production
     await save_otp(payload.phone, otp)
     return OTPSentResponse(message="OTP sent successfully", otp=otp)
 
