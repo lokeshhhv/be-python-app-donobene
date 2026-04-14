@@ -93,82 +93,6 @@ async def create_food_donation(
     except Exception as e:
         await db.rollback()
         raise HTTPException(500, f"An error occurred while creating the food donation: {str(e)}")
-    
-@router.get("/food-donation/{user_id}", response_model=list[dict])
-async def get_food_donations(user_id: int, db: AsyncSession = Depends(get_db)):
-    try:
-
-        # ✅ get all donations
-        result = await db.execute(select(FoodDonation).where(FoodDonation.user_id == user_id))
-        donations = result.scalars().all()
-
-        # Batch fetch related data for all donations
-        category_ids = {d.category_id for d in donations}
-        delivery_pref_ids = {d.delivery_preference_id for d in donations if d.delivery_preference_id}
-        verification_doc_ids = {d.verification_image_id for d in donations if d.verification_image_id}
-        donation_ids = [d.id for d in donations]
-
-        # Fetch all related categories
-        categories = (await db.execute(select(DonorCategory).where(DonorCategory.id.in_(category_ids)))).scalars().all()
-        category_map = {c.id: c for c in categories}
-
-        # Fetch all related delivery preferences
-        delivery_prefs = (await db.execute(select(DeliveryPreference).where(DeliveryPreference.id.in_(delivery_pref_ids)))).scalars().all()
-        delivery_pref_map = {d.id: d for d in delivery_prefs}
-
-        # Fetch all related attachments
-        attachments = (await db.execute(select(Attachment).where(Attachment.id.in_(verification_doc_ids)))).scalars().all()
-        attachment_map = {a.id: a for a in attachments}
-
-        # Fetch all child items for all donations
-        all_items = (await db.execute(select(FoodDonationDetail).where(FoodDonationDetail.food_donation_id.in_(donation_ids)))).scalars().all()
-        # Fetch all units for all items
-        unit_ids = {item.unit_id for item in all_items}
-        units = (await db.execute(select(Unit).where(Unit.id.in_(unit_ids)))).scalars().all()
-        unit_map = {u.id: u for u in units}
-
-        # Group items by donation id
-        from collections import defaultdict
-        items_by_donation = defaultdict(list)
-        for item in all_items:
-            items_by_donation[item.food_donation_id].append(item)
-
-        response = []
-        for donation in donations:
-            item_dicts = []
-            for item in items_by_donation[donation.id]:
-                unit = unit_map.get(item.unit_id)
-                item_dicts.append({
-                    "id": item.id,
-                    "food_donation_id": item.food_donation_id,
-                    "items": item.items,
-                    "quantity": item.quantity,
-                    "unit_name": unit.name if unit else None
-                })
-
-            response.append({
-                "id": donation.id,
-                "user_id": donation.user_id,
-                "category_name": category_map.get(donation.category_id).category_type if category_map.get(donation.category_id) else None,
-                "donation_title": donation.donation_title,
-                "delivery_preference_name": delivery_pref_map.get(donation.delivery_preference_id).name if delivery_pref_map.get(donation.delivery_preference_id) else None,
-                "preferred_date": donation.preferred_date,
-                "verification_document_file_path": (
-                    attachment_map.get(donation.verification_image_id).file_path
-                    if donation.verification_image_id and attachment_map.get(donation.verification_image_id) else None
-                ),
-                "notes": donation.notes,
-                "created_at": donation.created_at,
-                "updated_at": donation.updated_at,
-                "items": item_dicts
-            })
-        return response
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching food donations: {str(e)}"
-        )
 
 @router.get("/food-donation-categories", response_model=list[dict])
 async def get_food_donation_categories(db: AsyncSession = Depends(get_db)):
@@ -296,82 +220,6 @@ async def create_clothes_donation(
     except Exception as e:
         await db.rollback()
         raise HTTPException(500, f"An error occurred while creating the clothes donation: {str(e)}")
-
-@router.get("/clothes-donation/{user_id}", response_model=list[dict])
-async def get_clothes_donations(user_id: int, db: AsyncSession = Depends(get_db)):
-    try:
-        # ✅ get all donations
-        result = await db.execute(select(ClothesDonation).where(ClothesDonation.user_id == user_id))
-        donations = result.scalars().all()
-
-        # Batch fetch related data for all donations
-        pickup_type_ids = {d.pickup_type_id for d in donations if d.pickup_type_id}
-        verification_doc_ids = {d.verification_image_id for d in donations if d.verification_image_id}
-        donation_ids = [d.id for d in donations]
-
-        # Fetch all related delivery preferences
-        delivery_prefs = (await db.execute(select(DeliveryPreference).where(DeliveryPreference.id.in_(pickup_type_ids)))).scalars().all()
-        delivery_pref_map = {d.id: d for d in delivery_prefs}
-
-        # Fetch all related attachments
-        attachments = (await db.execute(select(Attachment).where(Attachment.id.in_(verification_doc_ids)))).scalars().all()
-        attachment_map = {a.id: a for a in attachments}
-
-        # Fetch all child items for all donations
-        all_items = (await db.execute(select(ClothesDonationDetail).where(ClothesDonationDetail.clothes_donation_id.in_(donation_ids)))).scalars().all()
-        # Fetch all categories, sizes, and conditions for all items
-        category_ids = {item.category_id for item in all_items}
-        size_ids = {item.size_id for item in all_items}
-        condition_ids = {item.condition_id for item in all_items}
-
-        categories = (await db.execute(select(DonorClothesCategory).where(DonorClothesCategory.id.in_(category_ids)))).scalars().all()
-        category_map = {c.id: c for c in categories}
-        sizes = (await db.execute(select(DonorClothesSize).where(DonorClothesSize.id.in_(size_ids)))).scalars().all()
-        size_map = {s.id: s for s in sizes}
-        conditions = (await db.execute(select(DonorClothesCondition).where(DonorClothesCondition.id.in_(condition_ids)))).scalars().all()
-        condition_map = {c.id: c for c in conditions}
-
-        # Group items by donation id
-        from collections import defaultdict
-        items_by_donation = defaultdict(list)
-        for item in all_items:
-            items_by_donation[item.clothes_donation_id].append(item)
-
-        response = []
-        for donation in donations:
-            item_dicts = []
-            for item in items_by_donation[donation.id]:
-                item_dicts.append({
-                    "id": item.id,
-                    "clothes_donation_id": item.clothes_donation_id,
-                    "category_name": category_map.get(item.category_id).name if category_map.get(item.category_id) else None,
-                    "size_name": size_map.get(item.size_id).name if size_map.get(item.size_id) else None,
-                    "condition_name": condition_map.get(item.condition_id).name if condition_map.get(item.condition_id) else None,
-                    "quantity": item.quantity
-                })
-
-            response.append({
-                "id": donation.id,
-                "user_id": donation.user_id,
-                "description": donation.description,
-                "pickup_type_name": delivery_pref_map.get(donation.pickup_type_id).name if delivery_pref_map.get(donation.pickup_type_id) else None,
-                "available_date": donation.available_date,
-                "verification_document_file_path": (
-                    attachment_map.get(donation.verification_image_id).file_path
-                    if donation.verification_image_id and attachment_map.get(donation.verification_image_id) else None
-                ),
-                "notes": donation.notes,
-                "created_at": donation.created_at,
-                "updated_at": donation.updated_at,
-                "items": item_dicts
-            })
-        return response
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching clothes donations: {str(e)}"
-        )
     
 # medical donation endpoints would be similar to the above structure, with appropriate changes to models, schemas, and logic.
 
@@ -453,3 +301,148 @@ async def create_medical_donation(payload: MedicalDonationCreate, db: AsyncSessi
     except Exception as e:
         await db.rollback()
         raise HTTPException(500, f"Error creating medical donation: {str(e)}")
+    
+
+# my donations endpoint to fetch all donations by a user across categories (clothes, food, medical)
+
+@router.get("/my-donations/{user_id}")
+async def get_my_donations(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        # Fetch all related data for mapping ids to names
+        categories = {c.id: c for c in (await db.execute(select(DonorCategory))).scalars().all()}
+        clothes_categories = {c.id: c for c in (await db.execute(select(DonorClothesCategory))).scalars().all()}
+        clothes_sizes = {s.id: s for s in (await db.execute(select(DonorClothesSize))).scalars().all()}
+        clothes_conditions = {c.id: c for c in (await db.execute(select(DonorClothesCondition))).scalars().all()}
+        delivery_prefs = {d.id: d for d in (await db.execute(select(DeliveryPreference))).scalars().all()}
+        units = {u.id: u for u in (await db.execute(select(Unit))).scalars().all()}
+        med_categories = {c.id: c for c in (await db.execute(select(MedicalDonationCategory))).scalars().all()}
+        avail_types = {a.id: a for a in (await db.execute(select(DonorAvailabilityType))).scalars().all()}
+        consent_types = {c.id: c for c in (await db.execute(select(DonorConsentType))).scalars().all()}
+        organ_map = {o.id: o for o in (await db.execute(select(DonorOrganDonation))).scalars().all()}
+        tissue_map = {t.id: t for t in (await db.execute(select(DonorTissueDonation))).scalars().all()}
+        stemcell_map = {s.id: s for s in (await db.execute(select(DonorStemcellDonation))).scalars().all()}
+        # Gender and BloodGroup
+        from src.models.types import Gender
+        from src.models.medical import BloodGroup
+        genders = {g.id: g for g in (await db.execute(select(Gender))).scalars().all()}
+        blood_groups = {b.id: b for b in (await db.execute(select(BloodGroup))).scalars().all()}
+        # Fetch all attachments for clothes and food donations
+        from src.models.types import Attachment
+        clothes_attachments = {a.request_id: a for a in (await db.execute(select(Attachment))).scalars().all() if a.category_id in clothes_categories}
+        food_attachments = {a.request_id: a for a in (await db.execute(select(Attachment))).scalars().all() if a.category_id in categories}
+
+        # Fetch clothes donations
+        clothes_result = await db.execute(select(ClothesDonation).where(ClothesDonation.user_id == user_id))
+        clothes_donations = []
+        for c in clothes_result.scalars().all():
+            # Fetch details for each clothes donation
+            details_result = await db.execute(select(ClothesDonationDetail).where(ClothesDonationDetail.clothes_donation_id == c.id))
+            details = []
+            for d in details_result.scalars().all():
+                details.append({
+                    "category": clothes_categories.get(d.category_id).name if d.category_id in clothes_categories else None,
+                    "size": clothes_sizes.get(d.size_id).name if d.size_id in clothes_sizes else None,
+                    "condition": clothes_conditions.get(d.condition_id).name if d.condition_id in clothes_conditions else None,
+                    "quantity": d.quantity
+                })
+            # Fetch attachment for this clothes donation
+            attachment = None
+            if c.verification_image_id:
+                att = clothes_attachments.get(c.id)
+                if att:
+                    attachment = {
+                        "id": att.id,
+                        "file_path": att.file_path,
+                        "document_type_id": att.document_type_id
+                    }
+            clothes_donations.append({
+                "id": c.id,
+                "description": c.description,
+                "category": categories.get(c.category_id).category_type if c.category_id in categories else None,
+                "pickup_type": delivery_prefs.get(c.pickup_type_id).name if c.pickup_type_id in delivery_prefs else None,
+                "available_date": c.available_date,
+                "notes": c.notes,
+                "details": details,
+                "attachment": attachment
+            })
+
+        # Fetch food donations
+        food_result = await db.execute(select(FoodDonation).where(FoodDonation.user_id == user_id))
+        food_donations = []
+        for f in food_result.scalars().all():
+            # Fetch details for each food donation
+            details_result = await db.execute(select(FoodDonationDetail).where(FoodDonationDetail.food_donation_id == f.id))
+            details = []
+            for d in details_result.scalars().all():
+                details.append({
+                    "items": d.items,
+                    "quantity": d.quantity,
+                    "unit": units.get(d.unit_id).name if d.unit_id in units else None
+                })
+            # Fetch attachment for this food donation
+            attachment = None
+            if f.verification_document_id:
+                att = food_attachments.get(f.id)
+                if att:
+                    attachment = {
+                        "id": att.id,
+                        "file_path": att.file_path,
+                        "document_type_id": att.document_type_id
+                    }
+            food_donations.append({
+                "id": f.id,
+                "donation_title": f.donation_title,
+                "category": categories.get(f.category_id).category_type if f.category_id in categories else None,
+                "delivery_preference": delivery_prefs.get(f.delivery_preference_id).name if f.delivery_preference_id in delivery_prefs else None,
+                "preferred_date": f.preferred_date,
+                "notes": f.notes,
+                "details": details,
+                "attachment": attachment
+            })
+
+        # Fetch medical donations
+        medical_result = await db.execute(select(MedicalDonation).where(MedicalDonation.user_id == user_id))
+        medical_donations = []
+        for m in medical_result.scalars().all():
+            # Fetch organ, tissue, stemcell mappings
+            organ_ids = [o.donor_organ_donation_id for o in (await db.execute(select(MedicalDonationOrganMap).where(MedicalDonationOrganMap.medical_donation_id == m.id))).scalars().all()]
+            tissue_ids = [t.donor_tissue_donation_id for t in (await db.execute(select(MedicalDonationTissueMap).where(MedicalDonationTissueMap.medical_donation_id == m.id))).scalars().all()]
+            stemcell_ids = [s.donor_stemcell_donation_id for s in (await db.execute(select(MedicalDonationStemcellMap).where(MedicalDonationStemcellMap.medical_donation_id == m.id))).scalars().all()]
+            medical_donations.append({
+                "id": m.id,
+                "full_name": m.full_name,
+                "category": categories.get(m.category_id).category_type if m.category_id in categories else None,
+                "medical_donation_category": med_categories.get(m.medical_donation_category_id).name if m.medical_donation_category_id in med_categories else None,
+                "age_group": m.age_group,
+                "gender": genders.get(m.gender_id).gender_name if m.gender_id in genders else None,
+                "contact_number": m.contact_number,
+                "blood_group": blood_groups.get(m.blood_group_id).name if m.blood_group_id in blood_groups else None,
+                "milk_volume": m.milk_volume,
+                "baby_age_months": m.baby_age_months,
+                "supply_type": m.supply_type,
+                "quantity": m.quantity,
+                "weight_kg": float(m.weight_kg) if m.weight_kg is not None else None,
+                "major_illness": m.major_illness,
+                "recent_surgery": m.recent_surgery,
+                "last_donation_date": m.last_donation_date,
+                "currently_on_medication": m.currently_on_medication,
+                "donation_type": m.donation_type,
+                "availability_type": avail_types.get(m.availability_type_id).name if m.availability_type_id in avail_types else None,
+                "consent_type": consent_types.get(m.consent_type_id).name if m.consent_type_id in consent_types else None,
+                "preferred_hospital": m.preferred_hospital,
+                "donation_location": m.donation_location,
+                "organs": [organ_map.get(oid).name for oid in organ_ids if oid in organ_map],
+                "tissues": [tissue_map.get(tid).name for tid in tissue_ids if tid in tissue_map],
+                "stemcells": [stemcell_map.get(sid).name for sid in stemcell_ids if sid in stemcell_map]
+            })
+
+        return {
+            "clothes_donations": clothes_donations,
+            "food_donations": food_donations,
+            "medical_donations": medical_donations,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Error fetching donations: {str(e)}")

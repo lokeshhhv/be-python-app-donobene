@@ -55,7 +55,7 @@ class UserInfo(BaseModel):
     state: Optional[str]
     type_donor_id: Optional[int]
     donor_type_subtype: Optional[int]
-
+    last_logged_as: Optional[str]
     model_config = ConfigDict(from_attributes=True)
 
 class TokenResponse(BaseModel):

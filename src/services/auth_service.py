@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.models.types import User
+from src.models.types import SwitchUser, User
 from src.schemas.auth import (
     RegisterRequest, TokenResponse, SendOTPRequest, OTPSentResponse, VerifyOTPRequest, RefreshTokenRequest, NewAccessTokenResponse, UserInfo
 )
@@ -141,11 +141,14 @@ async def verify_otp_login(payload: VerifyOTPRequest, db: AsyncSession) -> Token
         raise HTTPException(status_code=404, detail="User not found")
     access_token = create_access_token({"sub": str(user.id), "phone": user.phone})
     refresh_token = create_refresh_token({"sub": str(user.id), "phone": user.phone})
+    user_last_logged_as_result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user.id))
+    user_last_logged_as_obj = user_last_logged_as_result.scalar_one_or_none()
+    user_last_logged_as = str(user_last_logged_as_obj.switched_to_type) if user_last_logged_as_obj else None
     return TokenResponse(
         message="Login successful",
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserInfo.model_validate(user)
+        user=UserInfo.model_validate({**user.__dict__, "last_logged_as": user_last_logged_as}),
     )
 
 # 4. Refresh Access Token
