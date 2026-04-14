@@ -1,4 +1,22 @@
 ---------------
+User payload:
+---------------
+{
+  "name": "Deepa V",
+  "email": "deepa.v@example.com",
+  "phone": "9876543210",
+  "password": "Deepa@123",
+  "type_donor_id": 1,
+  "donor_type_subtype": 2,
+  "organization_name": "Helping Hands Foundation",
+  "address": "No. 12, Anna Nagar West",
+  "city": "Chennai",
+  "state": "Tamil Nadu",
+  "pincode": "600040",
+  "attachment_id": 101
+}
+
+---------------
 sports payload:
 ---------------
 {
@@ -361,4 +379,170 @@ Food payload: - Cooked Food
   "status_id": 5,            // 4 = approve, 5 = reject
   "verified": true,          // true or false
   "reject_reason": "Reason for rejection (required if status_id is 5, else can be null)"
+}
+
+------------------
+Donor Food: payload
+------------------
+
+{
+  "user_id": 1,
+  "category_id": 2,
+  "donation_title": "Fresh fruits donation",
+  "delivery_preference_id": 3,
+  "preferred_date": "2026-04-14",
+  "notes": "Please deliver before noon.",
+  "items": [
+    {
+      "items": "Apple",
+      "quantity": 10,
+      "unit_id": 1
+    }
+  ],
+  "verification_document": {
+    "document_type_id": 5,
+    "file_path": "/uploads/fruit-donation.pdf"
+  }
+}
+
+------------------
+Clothes Donor: payload
+------------------
+
+{
+  "user_id": 1,
+  "category_id": 2,
+  "description": "Winter jackets for donation",
+  "pickup_type_id": 1,               
+  "available_date": "2026-04-15",
+  "verification_document": {         
+    "document_type_id": 1,
+    "file_path": "/uploads/verify.pdf"
+  },
+  "notes": "Please call before pickup", 
+  "details": [
+    {
+      "category_id": 3,
+      "size_id": 2,
+      "condition_id": 1,
+      "quantity": 5
+    }
+  ]
+}
+------------------
+Medical: payload - Organ
+------------------
+{
+  "user_id": 1,
+  "category_id": 3,
+  "medical_donation_category_id": 1,
+  "full_name": "Alice Organ",
+  "age_group": "26-35",
+  "gender_id": 2,
+  "contact_number": "1234567890",
+  "blood_group_id": 1,
+  "weight_kg": 65.5,
+  "major_illness": false,
+  "recent_surgery": false,
+  "last_donation_date": "2024-12-01",
+  "currently_on_medication": false,
+  "donation_type": "organ",
+  "availability_type_id": 1,      
+  "consent_type_id": 1,    
+  "preferred_hospital": "City Hospital",
+  "donation_location": "123 Main St",
+  "organ_ids": [1, 2]
+}
+# Tissue Donation Payload
+{
+  "user_id": 2,
+  "category_id": 3,
+  "medical_donation_category_id": 2,
+  "full_name": "Bob Tissue",
+  "age_group": "36-45",
+  "gender_id": 1,
+  "contact_number": "2345678901",
+  "blood_group_id": 2,
+  "weight_kg": 70.0,
+  "major_illness": false,
+  "recent_surgery": false,
+  "last_donation_date": "2025-01-10",
+  "currently_on_medication": false,
+  "donation_type": "tissue",
+  "availability_type_id": 2,
+  "consent_type_id": 2,
+  "preferred_hospital": "General Hospital",
+  "donation_location": "456 Elm St",
+  "tissue_ids": [3, 4]
+}
+// Stem Cell Donation Payload
+{
+  "user_id": 1,
+  "category_id": 3,
+  "medical_donation_category_id": 4,
+  "full_name": "Charlie Stemcell",
+  "age_group": "18-25",
+  "gender_id": 1,
+  "contact_number": "3456789012",
+  "blood_group_id": 3,
+  "weight_kg": 68.0,
+  "major_illness": false,
+  "recent_surgery": false,
+  "last_donation_date": "2025-06-15",
+  "currently_on_medication": false,
+  "donation_type": "stemcell",
+  "availability_type_id": 1,
+  "consent_type_id": 1,
+  "preferred_hospital": "Specialty Hospital",
+  "donation_location": "789 Oak St",
+  "stemcell_ids": [3]
+}
+
+// Milk
+
+{
+  "user_id": 1,
+  "category_id": 3,
+  "medical_donation_category_id": 5,
+  "full_name": "Daisy Milk",
+  "age_group": "26-35",
+  "gender_id": 2,
+  "contact_number": "4567890123",
+  "blood_group_id": 4,
+  "weight_kg": 60.0,
+  "major_illness": false,
+  "recent_surgery": false,
+  "last_donation_date": "2026-01-20",
+  "currently_on_medication": false,
+  "donation_type": "milk",
+  "availability_type_id": 2,
+  "consent_type_id": 2,
+  "preferred_hospital": "Mother Care Hospital",
+  "donation_location": "321 Maple Ave",
+  "milk_volume": 500,
+  "baby_age_months": 6
+}
+
+// medical supply
+
+{
+  "user_id": 1,
+  "category_id": 3,
+  "medical_donation_category_id": 6,
+  "full_name": "Eve Supplies",
+  "age_group": "46-55",
+  "gender_id": 2,
+  "contact_number": "5678901234",
+  "weight_kg": 62.0,
+  "major_illness": false,
+  "recent_surgery": false,
+  "last_donation_date": "2025-11-05",
+  "currently_on_medication": false,
+  "donation_type": "supplies",
+  "availability_type_id": 1,
+  "consent_type_id": 1,
+  "preferred_hospital": "Community Hospital",
+  "donation_location": "654 Pine St",
+  "supply_type": "Bandages",
+  "quantity": 100
 }

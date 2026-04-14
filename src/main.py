@@ -26,6 +26,7 @@ from src.api.sports_categories import router as sports_categories
 from src.api.shelter_categories import router as shelter_categories
 from src.api.food_categories import router as food_categories
 from src.api.admin import router as admin_router
+from src.api.donor import router as donor_router
 
 app = FastAPI(title="DonoBene API", version="1.0.0")
 
@@ -50,7 +51,7 @@ app.include_router(sports_categories)
 app.include_router(shelter_categories)
 app.include_router(food_categories)
 app.include_router(admin_router)
-
+app.include_router(donor_router)
 # Health check
 @app.get("/")
 async def health_check():
