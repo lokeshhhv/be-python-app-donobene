@@ -73,3 +73,7 @@ class TypeDonor(Base):
     __tablename__ = "type_donors"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
+    icon = Column(String(255), nullable=True)
+    icon_color = Column(String(50), nullable=True)
+    icon_bg = Column(String(50), nullable=True)
+    description = Column(String(255), nullable=True)

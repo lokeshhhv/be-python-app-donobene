@@ -16,7 +16,7 @@ from src.core.dependencies import get_current_user_id
 router = APIRouter(
     prefix="/api/v1/types", 
     tags=["Types"], 
-    dependencies=[Depends(get_current_user_id)]
+    # dependencies=[Depends(get_current_user_id)]
 )
 
 @router.get("/current-userdata/{user_id}", response_model=list[dict])
@@ -66,7 +66,7 @@ async def get_users(
         user_dicts.append(user_data)
     return user_dicts
 
-@router.get("/user-types", response_model=list[dict])
+@router.get("/user-subtypes", response_model=list[dict])
 async def get_user_types(
     db: AsyncSession = Depends(get_db),
 ):
@@ -76,14 +76,14 @@ async def get_user_types(
         {"id": ut.id, "name": ut.name} for ut in user_types
     ]
 
-@router.get("/donor-types", response_model=list[dict])
+@router.get("/user-types", response_model=list[dict])
 async def get_donor_types(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(TypeDonor))
     donor_types = result.scalars().all()
     return [
-        {"id": dt.id, "name": dt.name} for dt in donor_types
+        {"id": dt.id, "name": dt.name, "icon": dt.icon, "icon_color": dt.icon_color, "icon_bg": dt.icon_bg, "description": dt.description} for dt in donor_types
     ]
 
 # Example FastAPI endpoint
