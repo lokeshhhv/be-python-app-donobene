@@ -51,43 +51,37 @@ class MedicalDonationCategorySchema(BaseModel):
     icon: Optional[str]
     is_active: Optional[bool] = True
 
-    class Config:
-        orm_mode = True
+
 
 class DonorStemcellDonationSchema(BaseModel):
     id: int
     name: str
 
-    class Config:
-        orm_mode = True
+
 
 class DonorTissueDonationSchema(BaseModel):
     id: int
     name: str
 
-    class Config:
-        orm_mode = True
+
 
 class DonorOrganDonationSchema(BaseModel):
     id: int
     name: str
 
-    class Config:
-        orm_mode = True
+
 
 class DonorConsentTypeSchema(BaseModel):
     id: int
     name: str
 
-    class Config:
-        orm_mode = True
+
 
 class DonorAvailabilityTypeSchema(BaseModel):
     id: int
     name: str
 
-    class Config:
-        orm_mode = True
+
 
 class MedicalDonationCategorySchema(BaseModel):
     id: int
@@ -95,8 +89,7 @@ class MedicalDonationCategorySchema(BaseModel):
     description: Optional[str]
     icon: Optional[str]
     is_active: Optional[bool]
-    class Config:
-        orm_mode = True
+
 
 
 class MedicalDonationCreate(BaseModel):
@@ -151,5 +144,3 @@ class MedicalDonationCreate(BaseModel):
 class MedicalDonationSchema(MedicalDonationCreate):
     id: int
     created_at: Optional[str]
-    class Config:
-        orm_mode = True

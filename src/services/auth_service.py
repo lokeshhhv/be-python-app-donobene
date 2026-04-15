@@ -5,7 +5,7 @@ from src.models.types import SwitchUser, User
 from src.schemas.auth import (
     RegisterRequest, TokenResponse, SendOTPRequest, OTPSentResponse, VerifyOTPRequest, RefreshTokenRequest, NewAccessTokenResponse, UserInfo
 )
-from src.utils.hashing import hash_password, verify_password
+from src.utils.hashing import hash_password
 from src.utils.otp import generate_otp, save_otp, get_otp, delete_otp
 import redis.asyncio as redis
 import os
@@ -13,9 +13,9 @@ import smtplib
 from email.mime.text import MIMEText
 from src.core.jwt import create_access_token
 from fastapi import BackgroundTasks
-
+from src.config.settings import settings
 # Async Redis client (singleton)
-redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
+redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 async def generate_email_otp(length: int = 4) -> str:
     import random
@@ -31,8 +31,9 @@ async def delete_email_otp(email: str) -> None:
     await redis_client.delete(f"email_otp:{email}")
 
 def send_otp_email(email: str, otp: str):
-    smtp_user = os.getenv("EMAIL_USER")
-    smtp_pass = os.getenv("EMAIL_PASS")
+
+    smtp_user = settings.SMTP_USER
+    smtp_pass = settings.SMTP_PASS
     if not smtp_user or not smtp_pass:
         raise Exception("Email credentials not set in environment variables.")
     msg = MIMEText(f"Your OTP is: {otp}")
@@ -40,7 +41,7 @@ def send_otp_email(email: str, otp: str):
     msg["From"] = smtp_user
     msg["To"] = email
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL(settings.SMTP_HOST, 465) as server:
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, [email], msg.as_string())
     except Exception as e:
@@ -140,29 +141,30 @@ async def register_user(payload: RegisterRequest, db: AsyncSession) -> TokenResp
 
 # 2. Send OTP
 async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> OTPSentResponse:
-    result = await db.execute(select(User).where(User.phone == payload.phone))
+    result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="Phone not registered")
+        raise HTTPException(status_code=404, detail="Email not registered")
     otp = await generate_otp()
-    print(f"Generated OTP for {payload.phone}: {otp}")  # For testing, remove in production
-    await save_otp(payload.phone, otp)
+    print(f"Generated OTP for {payload.email}: {otp}")  # For testing, remove in production
+    await save_otp(payload.email, otp)
+    send_otp_email(payload.email, otp)
     return OTPSentResponse(message="OTP sent successfully", otp=otp)
 
 # 3. Verify OTP Login
 async def verify_otp_login(payload: VerifyOTPRequest, db: AsyncSession) -> TokenResponse:
-    otp = await get_otp(payload.phone)
+    otp = await get_otp(payload.email)
     if otp is None:
         raise HTTPException(status_code=410, detail="OTP expired")
     if otp != payload.otp:
         raise HTTPException(status_code=401, detail="Invalid OTP")
-    await delete_otp(payload.phone)
-    result = await db.execute(select(User).where(User.phone == payload.phone))
+    await delete_otp(payload.email)
+    result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    access_token = create_access_token({"sub": str(user.id), "phone": user.phone})
-    refresh_token = create_refresh_token({"sub": str(user.id), "phone": user.phone})
+    access_token = create_access_token({"sub": str(user.id), "email": user.email})
+    refresh_token = create_refresh_token({"sub": str(user.id), "email": user.email})
     user_last_logged_as_result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user.id))
     user_last_logged_as_obj = user_last_logged_as_result.scalar_one_or_none()
     user_last_logged_as = str(user_last_logged_as_obj.switched_to_type) if user_last_logged_as_obj else None

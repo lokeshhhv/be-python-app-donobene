@@ -8,8 +8,8 @@ from typing import Optional
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 from src.config.settings import settings
-EMAIL_ADDRESS = settings.EMAIL_USER
-EMAIL_PASSWORD = settings.EMAIL_PASS
+EMAIL_ADDRESS = settings.SMTP_USER
+EMAIL_PASSWORD = settings.SMTP_PASS
 
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 

@@ -33,11 +33,13 @@ class RegisterRequest(BaseModel):
             raise ValueError("Password must contain at least 1 number")
         return v
 
+
 class SendOTPRequest(BaseModel):
-    phone: str
+    email: EmailStr
+
 
 class VerifyOTPRequest(BaseModel):
-    phone: str
+    email: EmailStr
     otp: str
 
 class RefreshTokenRequest(BaseModel):
