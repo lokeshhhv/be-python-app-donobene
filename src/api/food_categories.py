@@ -25,7 +25,7 @@ from src.schemas.FoodRequestPayload import FoodDurationResponse
 router = APIRouter(
     prefix="/api/v1/categories", 
     tags=["Food Categories"], 
-    # dependencies=[Depends(get_current_user_id)]
+    dependencies=[Depends(get_current_user_id)]
 )
 
 @router.get("/food-types", response_model=list[FoodTypeResponse])

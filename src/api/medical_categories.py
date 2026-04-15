@@ -19,7 +19,7 @@ from src.core.dependencies import get_current_user_id
 router = APIRouter(
     prefix="/api/v1/categories",
     tags=["Medical Categories"],
-    # dependencies=[Depends(get_current_user_id)],
+    dependencies=[Depends(get_current_user_id)],
 )
 
 @router.get("/medical-categories", response_model=list[dict])
