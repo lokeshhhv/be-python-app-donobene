@@ -13,3 +13,8 @@ pytest
 pytest-asyncio
 httpx
 bcrypt
+weasyprint
+jinja2
+aiosmtplib
+typing-extensions
+email-validator
