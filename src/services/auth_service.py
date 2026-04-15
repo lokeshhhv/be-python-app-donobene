@@ -30,16 +30,21 @@ async def get_email_otp(email: str) -> str:
 async def delete_email_otp(email: str) -> None:
     await redis_client.delete(f"email_otp:{email}")
 
-def send_otp_email(email: str, otp: str):
-
+def send_otp_email(email: str, otp: str, user_name: str = "User", verify_link: str = "#"):
+    """
+    Send OTP email using the HTML template.
+    """
+    from email.mime.multipart import MIMEMultipart
     smtp_user = settings.SMTP_USER
     smtp_pass = settings.SMTP_PASS
     if not smtp_user or not smtp_pass:
         raise Exception("Email credentials not set in environment variables.")
-    msg = MIMEText(f"Your OTP is: {otp}")
+    html_content = render_otp_email_html(user_name, otp, verify_link)
+    msg = MIMEMultipart("alternative")
     msg["Subject"] = "Your Login OTP"
     msg["From"] = smtp_user
     msg["To"] = email
+    msg.attach(MIMEText(html_content, "html"))
     try:
         with smtplib.SMTP_SSL(settings.SMTP_HOST, 465) as server:
             server.login(smtp_user, smtp_pass)
@@ -148,7 +153,11 @@ async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> OTPSentResponse
     otp = await generate_otp()
     print(f"Generated OTP for {payload.email}: {otp}")  # For testing, remove in production
     await save_otp(payload.email, otp)
-    send_otp_email(payload.email, otp)
+    # Use user's name if available, else fallback to email prefix
+    user_name = user.name if hasattr(user, "name") and user.name else payload.email.split("@")[0]
+    # You can generate a real verify_link if needed
+    verify_link = "#"
+    send_otp_email(payload.email, otp, user_name, verify_link)
     return OTPSentResponse(message="OTP sent successfully", otp=otp)
 
 # 3. Verify OTP Login
@@ -182,3 +191,71 @@ async def refresh_access_token(payload: RefreshTokenRequest) -> NewAccessTokenRe
     phone = data["phone"]
     access_token = create_access_token({"sub": user_id, "phone": phone})
     return NewAccessTokenResponse(access_token=access_token)
+
+# --- OTP Email Template Renderer ---
+def render_otp_email_html(user_name: str, otp: str, verify_link: str) -> str:
+        """
+        Render the OTP verification email HTML with the given user name, OTP, and verification link.
+        """
+        html_template = '''
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                    <title>DonoBene OTP Verification</title>
+                </head>
+                <body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8; padding:20px 0;">
+                        <tr>
+                            <td align="center">
+                                <table width="420" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                                    <tr>
+                                        <td style="background:#2E7D32; padding:20px; text-align:center; color:#ffffff;">
+                                            <h1 style="margin:0; font-size:22px;">DonoBene</h1>
+                                            <p style="margin:5px 0 0; font-size:13px;">Connecting hearts through giving</p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:30px 25px; color:#333333;">
+                                            <h2 style="margin-top:0; font-size:18px;">Verify Your Email</h2>
+                                            <p style="font-size:14px; line-height:1.6;">
+                                                Hi <strong>{user_name}</strong>,
+                                            </p>
+                                            <p style="font-size:14px; line-height:1.6;">
+                                                Use the One-Time Password (OTP) below to securely verify your DonoBene account:
+                                            </p>
+                                            <div style="margin:25px 0; text-align:center;">
+                                                <span style="display:inline-block; background:#f1f3f5; padding:15px 30px; font-size:24px; letter-spacing:4px; border-radius:8px; font-weight:bold; color:#2E7D32;">
+                                                    {otp}
+                                                </span>
+                                            </div>
+                                            <p style="font-size:13px; color:#666;">
+                                                This code is valid for <strong>5 minutes</strong>. Do not share it with anyone.
+                                            </p>
+                                            <p style="font-size:13px; color:#999;">
+                                                If you didn’t request this, you can safely ignore this email.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border-top:1px solid #eeeeee;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:20px; text-align:center; font-size:12px; color:#888;">
+                                            <p style="margin:0;">
+                                                © 2026 DonoBene. All rights reserved.
+                                            </p>
+                                            <p style="margin:5px 0;">
+                                                Need help? <a href="mailto:support@donobene.com" style="color:#2E7D32; text-decoration:none;">Contact Support</a>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+        '''
+        return html_template.format(user_name=user_name, otp=otp, verify_link=verify_link)
