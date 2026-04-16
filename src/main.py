@@ -24,12 +24,14 @@ from src.models import (
     sports,
     types,
     food,
+    dobepayment,
 )
 
 # Import routers
 from src.api.auth import router as auth_router
 from src.api.email_api import router as email_api_router
 from src.api.types import router as types_router
+from src.api.dobepayment import router as dobepayment_router
 from src.api.clothes_categories import router as clothes_categories
 from src.api.education_categories import router as education_categories
 from src.api.medical_categories import router as medical_categories
@@ -56,6 +58,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(email_api_router, prefix="/email", tags=["Email"])
 app.include_router(types_router)
+app.include_router(dobepayment_router)
 app.include_router(clothes_categories)
 app.include_router(education_categories)
 app.include_router(medical_categories)

@@ -553,3 +553,84 @@ Medical: payload - Organ
   "supply_type": "Bandages",
   "quantity": 100
 }
+
+
+
+
+payment api call method:
+
+step 1:
+
+/api/v1/dobepayment/donate
+{
+  "name": "Lokesh V",
+  "email": "lokeshv5844@gmail.com",
+  "phone": "9597670814",
+  "amount": 1000
+}
+
+step 2: integrate with frontend
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  var options = {
+    "key": "YOUR_KEY_ID", // Replace with your Razorpay key_id
+    "amount": 10000, // Amount in paise
+    "currency": "INR",
+    "order_id": "order_SeB0Hk0INK2ofU", // Order ID from your backend
+    "handler": function (response){
+        // These are the values you need!
+        console.log(response.razorpay_payment_id);   // <-- payment_id
+        console.log(response.razorpay_order_id);     // <-- order_id
+        console.log(response.razorpay_signature);    // <-- signature
+
+        // Send these to your backend /api/v1/dobepayment/verify endpoint
+        fetch('/api/v1/dobepayment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: response.razorpay_order_id,
+            payment_id: response.razorpay_payment_id,
+            signature: response.razorpay_signature
+          })
+        })
+        .then(res => res.json())
+        .then(data => console.log(data));
+    }
+  };
+  var rzp1 = new Razorpay(options);
+  rzp1.open();
+</script>
+
+
+response:
+
+Payment ID: pay_SeD4jiK6YUsqRA 
+Order ID: order_SeBgGhsFgoSvR1
+Signature: f632af087c7f679760674ecdc5c48abc62f68131694eeaf8c6ffaa437cb21947
+
+
+{
+  "order_id": "order_SeBgGhsFgoSvR1",        
+  "payment_id": "pay_SeD4jiK6YUsqRA",          
+  "signature": "f632af087c7f679760674ecdc5c48abc62f68131694eeaf8c6ffaa437cb21947"         
+}
+
+manually run the script now.
+
+step3: last api call
+/api/v1/dobepayment/webhook/razorpay
+
+{
+  "event": "payment.captured",
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_SeDZJf5JkB8VlL",                
+        "order_id": "pay_SeDZJf5JkB8VlL",    
+        "amount": 40,                         
+        "currency": "INR",                    
+        "status": "captured"
+      }
+    }
+  }
+}

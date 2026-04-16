@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str
     SMTP_PASS: str
+
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8"
