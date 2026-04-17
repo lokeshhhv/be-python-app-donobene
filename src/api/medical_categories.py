@@ -17,9 +17,9 @@ from src.schemas.MedicalRequestPayload import MedicalRequestPayload
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/categories",
+    prefix="/api/v1/medical",
     tags=["Medical Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 @router.get("/medical-categories", response_model=list[dict])
@@ -30,7 +30,7 @@ async def get_medical_categories(db: AsyncSession = Depends(get_db)):
         {"id": mc.id, "name": mc.name} for mc in medical_categories
     ]
 
-@router.get("/medical-support-types", response_model=list[dict])
+@router.get("/support-types", response_model=list[dict])
 async def get_support_types(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MedicalSupportType))
     support_types = result.scalars().all()
@@ -38,7 +38,7 @@ async def get_support_types(db: AsyncSession = Depends(get_db)):
         {"id": st.id, "name": st.name} for st in support_types
     ]
 
-@router.get("/medical-blood-groups", response_model=list[dict])
+@router.get("/blood-groups", response_model=list[dict])
 async def get_blood_groups(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(BloodGroup))
     blood_groups = result.scalars().all()
@@ -157,50 +157,50 @@ async def create_medical_request(
         await db.rollback()
         raise HTTPException(500, str(e))
     
-@router.get("/medical-request")
-async def get_medical_requests(user_id: int, db: AsyncSession = Depends(get_db)):
+# @router.get("/medical-request")
+# async def get_medical_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
-    result = await db.execute(select(MedicalRequest).where(MedicalRequest.user_id == user_id))
-    requests = result.scalars().all()
+#     result = await db.execute(select(MedicalRequest).where(MedicalRequest.user_id == user_id))
+#     requests = result.scalars().all()
 
-    response = []
+#     response = []
 
-    for r in requests:
+#     for r in requests:
 
-        patients = (await db.execute(
-            select(Patient).where(Patient.medical_request_id == r.id)
-        )).scalars().all()
+#         patients = (await db.execute(
+#             select(Patient).where(Patient.medical_request_id == r.id)
+#         )).scalars().all()
 
-        patient_data = []
+#         patient_data = []
 
-        for p in patients:
+#         for p in patients:
 
-            patient_data.append({
-                "patient_name": p.patient_name,
-                "age": p.age,
-                "gender_id": p.gender_id,
-                "medical_condition": p.medical_condition,
-                "blood_group_id": p.blood_group_id,
-                "medical_category_id": p.medical_category_id,
+#             patient_data.append({
+#                 "patient_name": p.patient_name,
+#                 "age": p.age,
+#                 "gender_id": p.gender_id,
+#                 "medical_condition": p.medical_condition,
+#                 "blood_group_id": p.blood_group_id,
+#                 "medical_category_id": p.medical_category_id,
 
-                "hospital_name": p.hospital_name,
-                "doctor_name": p.doctor_name,
-                "amount_requested": float(p.amount_requested) if p.amount_requested else None,
+#                 "hospital_name": p.hospital_name,
+#                 "doctor_name": p.doctor_name,
+#                 "amount_requested": float(p.amount_requested) if p.amount_requested else None,
 
-                "support_type_ids": p.support_type_ids,
+#                 "support_type_ids": p.support_type_ids,
 
-                "attachment_id": p.attachment_id,
-                "prescription_id": p.prescription_id,
-                "estimation_id": p.estimation_id
-            })
+#                 "attachment_id": p.attachment_id,
+#                 "prescription_id": p.prescription_id,
+#                 "estimation_id": p.estimation_id
+#             })
 
-        response.append({
-            "id": r.id,
-            "user_id": r.user_id,
-            "request_title": r.request_title,
-            "verified": r.verified,
-            "reject_reason": r.reject_reason,
-            "patients": patient_data
-        })
+#         response.append({
+#             "id": r.id,
+#             "user_id": r.user_id,
+#             "request_title": r.request_title,
+#             "verified": r.verified,
+#             "reject_reason": r.reject_reason,
+#             "patients": patient_data
+#         })
 
-    return response
+#     return response

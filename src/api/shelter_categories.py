@@ -16,9 +16,9 @@ from src.models.shelter import ShelterDurationOptions
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/shelter-categories",
+    prefix="/api/v1/shelter",
     tags=["Shelter Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 # ===========================
@@ -159,66 +159,66 @@ async def create_shelter_request(
 # =========================
 # ✅ GET
 # =========================
-@router.get("/shelter-request")
-async def get_shelter_requests(user_id: int, db: AsyncSession = Depends(get_db)):
+# @router.get("/shelter-request")
+# async def get_shelter_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
-    result = await db.execute(select(ShelterRequest).where(ShelterRequest.user_id == user_id))
-    requests = result.scalars().all()
+#     result = await db.execute(select(ShelterRequest).where(ShelterRequest.user_id == user_id))
+#     requests = result.scalars().all()
 
-    response = []
+#     response = []
 
-    for r in requests:
+#     for r in requests:
 
-        ben_result = await db.execute(
-            select(ShelterBeneficiary).where(
-                ShelterBeneficiary.shelter_request_id == r.id
-            )
-        )
-        beneficiaries = ben_result.scalars().all()
+#         ben_result = await db.execute(
+#             select(ShelterBeneficiary).where(
+#                 ShelterBeneficiary.shelter_request_id == r.id
+#             )
+#         )
+#         beneficiaries = ben_result.scalars().all()
 
-        ben_data = []
+#         ben_data = []
 
-        for b in beneficiaries:
+#         for b in beneficiaries:
 
-            verification_doc = None
-            damage_doc = None
+#             verification_doc = None
+#             damage_doc = None
 
-            if b.verification_document_id:
-                res = await db.execute(select(Attachment).where(Attachment.id == b.verification_document_id))
-                att = res.scalar_one_or_none()
-                if att:
-                    verification_doc = {"id": att.id, "file_path": att.file_path}
+#             if b.verification_document_id:
+#                 res = await db.execute(select(Attachment).where(Attachment.id == b.verification_document_id))
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     verification_doc = {"id": att.id, "file_path": att.file_path}
 
-            if b.damage_document_id:
-                res = await db.execute(select(Attachment).where(Attachment.id == b.damage_document_id))
-                att = res.scalar_one_or_none()
-                if att:
-                    damage_doc = {"id": att.id, "file_path": att.file_path}
+#             if b.damage_document_id:
+#                 res = await db.execute(select(Attachment).where(Attachment.id == b.damage_document_id))
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     damage_doc = {"id": att.id, "file_path": att.file_path}
 
-            ben_data.append({
-                "id": b.id,
-                "person_name": b.person_name,
-                "total_members": b.total_members,
-                "special_need_id": b.special_need_id,
-                "staying_type_id": b.staying_type_id,
-                "requirement_type_id": b.requirement_type_id,
-                "duration_option_id": b.duration_option_id,
-                "number_of_days": b.number_of_days,
-                "verification_document": verification_doc,
-                "damage_document": damage_doc
-            })
+#             ben_data.append({
+#                 "id": b.id,
+#                 "person_name": b.person_name,
+#                 "total_members": b.total_members,
+#                 "special_need_id": b.special_need_id,
+#                 "staying_type_id": b.staying_type_id,
+#                 "requirement_type_id": b.requirement_type_id,
+#                 "duration_option_id": b.duration_option_id,
+#                 "number_of_days": b.number_of_days,
+#                 "verification_document": verification_doc,
+#                 "damage_document": damage_doc
+#             })
 
-        response.append({
-            "id": r.id,
-            "user_id": r.user_id,
-            "category_id": r.category_id,
-            "request_title": r.request_title,
-            "request_description": r.request_description,
-            "status_id": r.status_id,
-            "urgency_id": r.urgency_id,
-            "verified": r.verified,
-            "reject_reason": r.reject_reason,
-            "beneficiaries": ben_data
-        })
+#         response.append({
+#             "id": r.id,
+#             "user_id": r.user_id,
+#             "category_id": r.category_id,
+#             "request_title": r.request_title,
+#             "request_description": r.request_description,
+#             "status_id": r.status_id,
+#             "urgency_id": r.urgency_id,
+#             "verified": r.verified,
+#             "reject_reason": r.reject_reason,
+#             "beneficiaries": ben_data
+#         })
 
-    return response
+#     return response

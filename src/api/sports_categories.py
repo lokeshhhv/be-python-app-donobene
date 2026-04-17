@@ -20,9 +20,9 @@ from src.models.sports import SportsRequestBeneficiary
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/categories",
+    prefix="/api/v1/sports",
     tags=["Sports Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
 # ===========================
@@ -36,7 +36,7 @@ async def get_sports_categories(db: AsyncSession = Depends(get_db)):
     return [{"id": d.id, "name": d.name} for d in data]
 
 
-@router.get("/sports-support-types", response_model=list[dict])
+@router.get("/support-types", response_model=list[dict])
 async def get_sports_support_types(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SportsSupportType))
     data = result.scalars().all()
@@ -181,83 +181,83 @@ async def create_sports_request(
 # ✅ GET API (LIST)
 # ===========================
 
-@router.get("/sports-request")
-async def get_sports_requests(user_id: int, db: AsyncSession = Depends(get_db)):
+# @router.get("/sports-request")
+# async def get_sports_requests(user_id: int, db: AsyncSession = Depends(get_db)):
 
-    # ✅ Fetch all requests
-    result = await db.execute(select(SportsRequest).where(SportsRequest.user_id == user_id))
-    requests = result.scalars().all()
+#     # ✅ Fetch all requests
+#     result = await db.execute(select(SportsRequest).where(SportsRequest.user_id == user_id))
+#     requests = result.scalars().all()
 
-    response = []
+#     response = []
 
-    for r in requests:
+#     for r in requests:
 
-        # ✅ Fetch beneficiaries
-        ben_result = await db.execute(
-            select(SportsRequestBeneficiary).where(
-                SportsRequestBeneficiary.sports_request_id == r.id
-            )
-        )
-        beneficiaries = ben_result.scalars().all()
+#         # ✅ Fetch beneficiaries
+#         ben_result = await db.execute(
+#             select(SportsRequestBeneficiary).where(
+#                 SportsRequestBeneficiary.sports_request_id == r.id
+#             )
+#         )
+#         beneficiaries = ben_result.scalars().all()
 
-        ben_data = []
+#         ben_data = []
 
-        for b in beneficiaries:
+#         for b in beneficiaries:
 
-            # 🔥 fetch attachments
-            verification_doc = None
-            achievement_doc = None
+#             # 🔥 fetch attachments
+#             verification_doc = None
+#             achievement_doc = None
 
-            if b.verification_document_id:
-                res = await db.execute(
-                    select(Attachment).where(Attachment.id == b.verification_document_id)
-                )
-                att = res.scalar_one_or_none()
-                if att:
-                    verification_doc = {
-                        "id": att.id,
-                        "file_path": att.file_path
-                    }
+#             if b.verification_document_id:
+#                 res = await db.execute(
+#                     select(Attachment).where(Attachment.id == b.verification_document_id)
+#                 )
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     verification_doc = {
+#                         "id": att.id,
+#                         "file_path": att.file_path
+#                     }
 
-            if b.achievement_document_id:
-                res = await db.execute(
-                    select(Attachment).where(Attachment.id == b.achievement_document_id)
-                )
-                att = res.scalar_one_or_none()
-                if att:
-                    achievement_doc = {
-                        "id": att.id,
-                        "file_path": att.file_path
-                    }
+#             if b.achievement_document_id:
+#                 res = await db.execute(
+#                     select(Attachment).where(Attachment.id == b.achievement_document_id)
+#                 )
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     achievement_doc = {
+#                         "id": att.id,
+#                         "file_path": att.file_path
+#                     }
 
-            ben_data.append({
-                "id": b.id,
-                "person_name": b.person_name,
-                "age_group": b.age_group,
-                "gender_id": b.gender_id,
-                "playing_level_id": b.playing_level_id,
-                "sports_category_ids": b.sports_category_ids,
-                "support_type_ids": b.support_type_ids,
-                "achievement": b.achievement,
-                "amount_requested": b.amount_requested,
-                "event_date": b.event_date,
-                "institution_name": b.institution_name,
-                "phone": b.phone,
+#             ben_data.append({
+#                 "id": b.id,
+#                 "person_name": b.person_name,
+#                 "age_group": b.age_group,
+#                 "gender_id": b.gender_id,
+#                 "playing_level_id": b.playing_level_id,
+#                 "sports_category_ids": b.sports_category_ids,
+#                 "support_type_ids": b.support_type_ids,
+#                 "achievement": b.achievement,
+#                 "amount_requested": b.amount_requested,
+#                 "event_date": b.event_date,
+#                 "institution_name": b.institution_name,
+#                 "phone": b.phone,
 
-                # 🔥 attachments added
-                "verification_document": verification_doc,
-                "achievement_document": achievement_doc
-            })
+#                 # 🔥 attachments added
+#                 "verification_document": verification_doc,
+#                 "achievement_document": achievement_doc
+#             })
 
-        response.append({
-            "id": r.id,
-            "user_id": r.user_id,
-            "category_id": r.category_id,
-            "request_title": r.request_title,
-            "request_description": r.request_description,
-            "verified": r.verified,
-            "reject_reason": r.reject_reason,
-            "beneficiaries": ben_data
-        })
+#         response.append({
+#             "id": r.id,
+#             "user_id": r.user_id,
+#             "category_id": r.category_id,
+#             "request_title": r.request_title,
+#             "request_description": r.request_description,
+#             "verified": r.verified,
+#             "reject_reason": r.reject_reason,
+#             "beneficiaries": ben_data
+#         })
 
-    return response
+#     return response

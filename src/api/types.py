@@ -4,6 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text
+from src.schemas.types import AttachmentResponse, UserProfileResponse
+from src.schemas.ShelterRequestPayload import ShelterRequestPayload, ShelterBeneficiaryPayload
+from src.schemas.SportsRequestPayload import SportsRequestPayload, SportsBeneficiaryPayload
+from src.schemas.MedicalRequestPayload import MedicalRequestPayload, PatientPayload
+from src.schemas.EducationRequestPayload import EducationRequestPayload, StudentPayload
+from src.schemas.ClothesRequestPayload import ClothesRequestPayload, BeneficiaryPayload
+from src.schemas.FoodRequestPayload import CookedFoodResponse, FoodDailyMealRequestPayload, GroceryRequestPayload, GroceryItemPayload
 from src.models.types import SwitchUser, User
 from src.models.types import RequestStatusMaster
 from src.models.types import UrgencyLevel
@@ -11,6 +18,8 @@ from src.db.session import get_db
 from src.models.types import UserType
 from src.models.types import TypeDonor
 from src.models.types import Gender
+
+
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
@@ -19,7 +28,7 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("/current-userdata/{user_id}", response_model=list[dict])
+@router.get("/current-userdata/{user_id}", response_model=list[UserProfileResponse])
 async def get_users(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -29,21 +38,21 @@ async def get_users(
     users = result.scalars().all()
     user_dicts = []
     for user in users:
-        user_data = {k: v for k, v in user.__dict__.items() if not k.startswith('_')}
-
-        # Remove type_donor_id and donor_type_subtype from response
-        user_data.pop('type_donor_id', None)
-        user_data.pop('donor_type_subtype', None)
-
-        # Bring attachment info if present
+        # Build attachment info if present
         attachment = None
         if hasattr(user, 'attachment_id') and user.attachment_id:
             attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
             attachment_obj = attach_result.scalar_one_or_none()
             if attachment_obj:
-                attachment = {k: v for k, v in attachment_obj.__dict__.items() if not k.startswith('_')}
-        if attachment:
-            user_data['attachment'] = attachment
+                attachment = AttachmentResponse(
+                    id=attachment_obj.id,
+                    document_type_id=attachment_obj.document_type_id,
+                    user_id=attachment_obj.user_id,
+                    request_id=attachment_obj.request_id,
+                    file_path=attachment_obj.file_path,
+                    category_id=attachment_obj.category_id,
+                    created_at=str(attachment_obj.created_at) if attachment_obj.created_at else None
+                )
 
         # Bring type_donor name
         type_donor_name = None
@@ -52,7 +61,6 @@ async def get_users(
             td_obj = td_result.scalar_one_or_none()
             if td_obj:
                 type_donor_name = td_obj.name
-        user_data['type_donor_name'] = type_donor_name
 
         # Bring user_type name (donor_type_subtype)
         user_type_name = None
@@ -61,9 +69,21 @@ async def get_users(
             ut_obj = ut_result.scalar_one_or_none()
             if ut_obj:
                 user_type_name = ut_obj.name
-        user_data['user_type_name'] = user_type_name
 
-        user_dicts.append(user_data)
+        user_dicts.append(UserProfileResponse(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            organization_name=user.organization_name,
+            city=user.city,
+            pincode=user.pincode,
+            address=user.address,
+            state=user.state,
+            attachment=attachment,
+            type_donor_name=type_donor_name,
+            user_type_name=user_type_name
+        ))
     return user_dicts
 
 @router.get("/user-subtypes", response_model=list[dict])
@@ -97,7 +117,7 @@ async def get_genders(
     return [{"id": g.id, "gender_name": g.gender_name} for g in genders]
 
 # Switch User endpoints (for testing purposes)
-@router.post("/switch-users", response_model=dict)
+@router.post("/switch-users-admin-specific", response_model=dict)
 async def create_switch_user(
     user_id: int,
     switched_to_type: int,
@@ -118,7 +138,7 @@ async def create_switch_user(
     }
 
 # Endpoint to get all switch user records (for testing purposes)
-@router.get("/switch-users/{user_id}", response_model=list[dict])
+@router.get("/switch-users-admin-specific/{user_id}", response_model=list[dict])
 async def get_switch_users(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -135,7 +155,7 @@ async def get_switch_users(
         for su in switch_users
     ]
 
-@router.get("/request-status-master", response_model=list[dict])
+@router.get("/statuses", response_model=list[dict])
 async def get_request_status_master(
     db: AsyncSession = Depends(get_db),
 ):
@@ -143,7 +163,7 @@ async def get_request_status_master(
     request_statuses = result.scalars().all()
     return [{"id": rs.id, "name": rs.name} for rs in request_statuses]
 
-@router.get("/urgency-levels", response_model=list[dict])
+@router.get("/priorities", response_model=list[dict])
 async def get_urgency_levels(
     db: AsyncSession = Depends(get_db),
 ):
@@ -151,7 +171,7 @@ async def get_urgency_levels(
     urgency_levels = result.scalars().all()
     return [{"id": ul.id, "name": ul.name} for ul in urgency_levels]
 
-@router.get("/myrequest-counts/{user_id}", response_model=dict)
+@router.get("/receiver-requests/counts/{user_id}", response_model=dict)
 async def get_my_request_counts(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -259,10 +279,10 @@ async def get_my_request_counts(
         }
     }
 
-@router.get("/myrequest-user-filled/{user_id}/{status_id}", response_model=dict)
+@router.get("/receiver-requests/user-filled/{user_id}", response_model=dict)
 async def get_all_user_data(
     user_id: int,
-    status_id: int = None,
+    status_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
     # SHELTER
@@ -776,318 +796,161 @@ async def get_all_user_data(
 
     grocery = grocery_q.fetchall()
 
-    medical_data = {}
-    for row in medical:
-        row = dict(row._mapping)
-        req_id = row["id"]
-
-        if req_id not in medical_data:
-            medical_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "patients": []
-            }
-
-        if row["patient_name"]:
-            medical_data[req_id]["patients"].append({
-                "patient_name": row["patient_name"],
-                "age": row["age"],
-                "gender": row["gender"],
-                "medical_condition": row["medical_condition"],
-                "hospital_name": row["hospital_name"],
-                "doctor_name": row["doctor_name"],
-                "blood_group": row["blood_group"],
-                "medical_category": row["medical_category"],
-                "financial_information": row["financial_information"],
-                "amount_paid": row["amount_paid"],
-                "amount_requested": row["amount_requested"],
-                "funds_needed_by": row["funds_needed_by"],
-                "contact_information": row["contact_information"],
-                "emergency_contact_name": row["emergency_contact_name"],
-                "support_type_names": row.get("support_type_names"),
-                "verification_document_filepath": row.get("verification_document_filepath"),
-                "prescription_document_filepath": row.get("prescription_document_filepath"),
-                "estimation_document_filepath": row.get("estimation_document_filepath")
-            })
-
-    medical_final = list(medical_data.values())
-
-
-    shelter_data = {}
-
+    # NESTED shelter_requests using append
+    shelter_map = {}
+    shelter_requests = []
     for row in shelter:
-        row = dict(row._mapping)
-        req_id = row["id"]
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in shelter_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['beneficiaries'] = []
+            shelter_requests.append(parent)
+            shelter_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'person_name', 'total_members', 'current_address', 'duration_of_problem', 'number_of_days',
+            'special_need', 'staying_type', 'requirement_type', 'duration_option',
+            'damage_document_filepath', 'verification_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            shelter_map[req_id]['beneficiaries'].append(child)
 
-        # create parent
-        if req_id not in shelter_data:
-            shelter_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "shelter_beneficiaries": []
-            }
-        # add beneficiary if exists
-        if row["id"]:
-            shelter_data[req_id]["shelter_beneficiaries"].append({
-                "person_name": row["person_name"],
-                "total_members": row["total_members"],
-                "current_address": row["current_address"],
-                "duration_of_problem": row["duration_of_problem"],
-                "number_of_days": row["number_of_days"],
-                "special_need": row["special_need"],
-                "staying_type": row["staying_type"],
-                "requirement_type": row["requirement_type"],
-                "duration_option": row["duration_option"],
-                "damage_document_filepath": row["damage_document_filepath"],
-                "verification_document_filepath": row["verification_document_filepath"]
-            })
-    shelter_final = list(shelter_data.values())
-
-    sports_data = {}
-
+    # NESTED sports_requests using append
+    sports_map = {}
+    sports_requests = []
     for row in sports:
-        row = dict(row._mapping)
-        req_id = row["id"]
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in sports_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['participants'] = []
+            sports_requests.append(parent)
+            sports_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'person_name', 'age_group', 'gender', 'playing_level', 'achievement', 'amount_requested', 'event_date', 'institution_name', 'phone', 'verification_document_filepath', 'achievement_document_filepath', 'sports_names', 'support_type_names'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            sports_map[req_id]['participants'].append(child)
 
-        if req_id not in sports_data:
-            sports_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "beneficiaries": []
-            }
+    # NESTED medical_requests using append
+    medical_map = {}
+    medical_requests = []
+    for row in medical:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in medical_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['patients'] = []
+            medical_requests.append(parent)
+            medical_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'patient_name', 'age', 'gender', 'medical_condition','hospital_name','hospital_address','doctor_name','financial_information','funds_needed_by','amount_paid','amount_requested','contact_information','emergency_contact_name','blood_group','medical_category','support_type_names','verification_document_filepath','prescription_document_filepath','estimation_document_filepath',
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            medical_map[req_id]['patients'].append(child)
 
-        if row["person_name"]:
-            sports_data[req_id]["beneficiaries"].append({
-                "person_name": row["person_name"],
-                "age_group": row.get("age_group"),
-                "gender": row["gender"],
-                "playing_level": row["playing_level"],
-                "achievement": row["achievement"],
-                "amount_requested": row["amount_requested"],
-                "event_date": row["event_date"],
-                "institution_name": row["institution_name"],
-                "phone": row["phone"],
-                "verification_document_filepath": row.get("verification_document_filepath"),
-                "achievement_document_filepath": row.get("achievement_document_filepath"),
-                "sports_names": row.get("sports_names"),
-                "support_type_names": row.get("support_type_names")
-            })
-
-    sports_final = list(sports_data.values())
-
-    education_data = {}
-
+    # NESTED education_requests using append
+    education_map = {}
+    education_requests = []
     for row in education:
-        row = dict(row._mapping)
-        req_id = row["id"]
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in education_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['students'] = []
+            education_requests.append(parent)
+            education_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'person_name', 'age', 'grade', 'education_support_type', 'amount_requested', 'institution_name', 'institution_address', 'contact_person_name', 'contact_person_phone', 'verification_document_filepath', 'achievement_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            education_map[req_id]['students'].append(child)
 
-        if req_id not in education_data:
-            education_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "students": []
-            }
-
-        if row["person_name"]:
-            education_data[req_id]["students"].append({
-                "person_name": row["person_name"],
-                "age": row["age"],
-                "grade_level": row["grade_level"],
-                "education_support_type": row["education_support_type"],
-                "amount_requested": row["amount_requested"],
-                "institution_name": row["institution_name"],
-                "institution_address": row["institution_address"],
-                "contact_person_name": row["contact_person_name"],
-                "contact_person_phone": row["contact_person_phone"],
-                "verification_document_filepath": row.get("verification_document_filepath"),
-                "achievement_document_filepath": row.get("achievement_document_filepath")
-            })
-
-    education_final = list(education_data.values())
-
-    clothes_data = {}
-
+    # NESTED clothes_requests using append
+    clothes_map = {}
+    clothes_requests = []
     for row in clothes:
-        row = dict(row._mapping)
-    req_id = row["id"]
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in clothes_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['items'] = []
+            clothes_requests.append(parent)
+            clothes_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'person_name', 'age_group', 'gender', 'clothing_category', 'beneficiary_urgency', 'need_by_date', 'verification_document_filepath', 'achievement_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            clothes_map[req_id]['items'].append(child)
 
-    if req_id not in clothes_data:
-        clothes_data[req_id] = {
-            "id": row["id"],
-            "user_id": row["user_id"],
-            "category": row["category"],
-            "status": row["status"],
-            "urgency": row["urgency"],
-            "request_title": row["request_title"],
-            "request_description": row["request_description"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-            "beneficiaries": []
-        }
-
-        if row["person_name"]:
-            clothes_data[req_id]["beneficiaries"].append({
-                "person_name": row["person_name"],
-                "age_group": row.get("age_group"),
-                "gender": row.get("gender"),
-                "clothing_category": row.get("clothing_category"),
-                "beneficiary_urgency": row.get("beneficiary_urgency"),
-                "need_by_date": row.get("need_by_date"),
-                "verification_document_filepath": row.get("verification_document_filepath"),
-                "achievement_document_filepath": row.get("achievement_document_filepath")
-            })
-
-    clothes_final = list(clothes_data.values())
-
-    grocery_data = {}
-
+    # NESTED grocery_essentials_requests using append
+    grocery_map = {}
+    grocery_requests = []
     for row in grocery:
-        row = dict(row._mapping)
-        req_id = row["id"]
-
-        if req_id not in grocery_data:
-            grocery_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "frequency": row["frequency"],
-                "address": row["address"],
-                "landmark": row["landmark"],
-                "delivery_required": row["delivery_required"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "items": []
-            }
-
-        grocery_data[req_id]["items"].append({
-            "item_name": row["item_name"],
-            "custom_item_name": row["custom_item_name"],
-            "quantity": row["quantity"],
-            "unit": row["unit"],
-            "priority": row["priority"]
-        })
-
-    grocery_final = list(grocery_data.values())
-
-    cooked_data = {}
-
-    for row in cooked:
-        row = dict(row._mapping)
-        req_id = row["id"]
-
-        if req_id not in cooked_data:
-            cooked_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "number_of_people": row["number_of_people"],
-                "plates_required": row["plates_required"],
-                "required_date": row["required_date"],
-                "address": row["address"],
-                "landmark": row["landmark"],
-                "delivery_required": row["delivery_required"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "food_details": []
-            }
-
-        cooked_data[req_id]["food_details"].append({
-            "food_type": row["food_type"],
-            "meal_type": row["meal_type"],
-            "time_slot": row["time_slot"],
-            "food_urgency": row["food_urgency"]
-        })
-
-    cooked_final = list(cooked_data.values())
-
-    daily_data = {}
-
-    for row in daily:
-        row = dict(row._mapping)
-        req_id = row["id"]
-
-        if req_id not in daily_data:
-            daily_data[req_id] = {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "category": row["category"],
-                "status": row["status"],
-                "urgency": row["urgency"],
-                "request_title": row["request_title"],
-                "request_description": row["request_description"],
-                "number_of_people": row["number_of_people"],
-                "address": row["address"],
-                "landmark": row["landmark"],
-                "delivery_required": row["delivery_required"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "meal_plan": []
-            }
-
-        daily_data[req_id]["meal_plan"].append({
-            "age_group": row["age_group"],
-            "medical_special_need": row["medical_special_need"],
-            "meal_type": row["meal_type"],
-            "frequency": row["frequency"],
-            "duration": row["duration"],
-            "custom_days": row["custom_days"],
-            "custom_date_range": row["custom_date_range"],
-            "time_slot": row["time_slot"]
-        })
-
-    daily_final = list(daily_data.values())
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in grocery_map:
+            # Parent fields
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'address', 'landmark', 'delivery_required', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['items'] = []
+            grocery_requests.append(parent)
+            grocery_map[req_id] = parent
+        # Child fields
+        child_fields = [
+            'frequency', 'item_name', 'custom_item_name', 'quantity', 'unit', 'priority'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            grocery_map[req_id]['items'].append(child)
 
     return {
-        "user_id": user_id,
-        "status_id": status_id,
-        "data": {
-            "shelter": shelter_final,
-            "sports": sports_final,
-            "medical": medical_final,
-            "education": education_final,
-            "clothes": clothes_final,
-            "food": {
-                "cooked_food": cooked_final,
-                "daily_meal": daily_final,
-                "grocery": grocery_final
-            }
-        }
+        "shelter_requests": shelter_requests,
+        "sports_requests": sports_requests,
+        "medical_requests": medical_requests,
+        "education_requests": education_requests,
+        "clothes_requests": clothes_requests,
+        "food_requests_cooked_food": [dict(row._mapping) for row in cooked],
+        "food_daily_meal_requests": [dict(row._mapping) for row in daily],
+        "grocery_essentials_requests": grocery_requests,
     }
 
     

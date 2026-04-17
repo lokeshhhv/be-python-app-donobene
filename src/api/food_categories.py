@@ -23,9 +23,9 @@ from src.schemas.FoodRequestPayload import FoodDurationResponse
 
 # 🔹 GET APIs
 router = APIRouter(
-    prefix="/api/v1/categories", 
+    prefix="/api/v1/food", 
     tags=["Food Categories"], 
-    dependencies=[Depends(get_current_user_id)]
+    # dependencies=[Depends(get_current_user_id)]
 )
 
 @router.get("/food-types", response_model=list[FoodTypeResponse])
@@ -131,16 +131,16 @@ async def create_cooked_food(cooked_food: CookedFoodCreate, db: Session = Depend
     await db.refresh(new_cooked_food)
     return [new_cooked_food]
 
-@router.get("/food-cooked", response_model=list[CookedFoodResponse])
-async def get_cooked_foods(user_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = select(FoodRequestsCookedFood)
+# @router.get("/food-cooked", response_model=list[CookedFoodResponse])
+# async def get_cooked_foods(user_id: Optional[int] = None, db: Session = Depends(get_db)):
+#     query = select(FoodRequestsCookedFood)
 
-    if user_id:
-        query = query.where(FoodRequestsCookedFood.user_id == user_id)
+#     if user_id:
+#         query = query.where(FoodRequestsCookedFood.user_id == user_id)
 
-    result = await db.execute(query)
-    cooked_foods = result.scalars().all()
-    return cooked_foods
+#     result = await db.execute(query)
+#     cooked_foods = result.scalars().all()
+#     return cooked_foods
 
 @router.post("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
 async def create_daily_meal_request(daily_meal_request: FoodDailyMealRequestPayload, db: Session = Depends(get_db)):
@@ -151,16 +151,16 @@ async def create_daily_meal_request(daily_meal_request: FoodDailyMealRequestPayl
     await db.refresh(new_daily_meal_request)
     return [new_daily_meal_request]
 
-@router.get("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
-async def get_daily_meal_requests( user_id: Optional[int] = None,db: Session = Depends(get_db)):
-    query = select(FoodDailyMealRequest)
+# @router.get("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
+# async def get_daily_meal_requests( user_id: Optional[int] = None,db: Session = Depends(get_db)):
+#     query = select(FoodDailyMealRequest)
 
-    if user_id:
-        query = query.where(FoodDailyMealRequest.user_id == user_id)
+#     if user_id:
+#         query = query.where(FoodDailyMealRequest.user_id == user_id)
 
-    result = await db.execute(query)
-    daily_meal_requests = result.scalars().all()
-    return daily_meal_requests
+#     result = await db.execute(query)
+#     daily_meal_requests = result.scalars().all()
+#     return daily_meal_requests
 
 @router.post("/grocery-essential", response_model=dict)
 async def create_grocery_request(
@@ -208,50 +208,50 @@ async def create_grocery_request(
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/grocery-essential", response_model=list[dict])
-async def get_grocery_requests(
-    user_id: Optional[int] = None,
-    db: Session = Depends(get_db)
-):
-    query = select(GroceryEssentialsRequest)
+# @router.get("/grocery-essential", response_model=list[dict])
+# async def get_grocery_requests(
+#     user_id: Optional[int] = None,
+#     db: Session = Depends(get_db)
+# ):
+#     query = select(GroceryEssentialsRequest)
 
-    if user_id:
-        query = query.where(GroceryEssentialsRequest.user_id == user_id)
+#     if user_id:
+#         query = query.where(GroceryEssentialsRequest.user_id == user_id)
 
-    result = await db.execute(query)
-    requests = result.scalars().all()
+#     result = await db.execute(query)
+#     requests = result.scalars().all()
 
-    response = []
+#     response = []
 
-    for r in requests:
-        item_result = await db.execute(
-            select(GroceryEssentialsItem).where(
-                GroceryEssentialsItem.grocery_essentials_request_id == r.id
-            )
-        )
-        items = item_result.scalars().all()
+#     for r in requests:
+#         item_result = await db.execute(
+#             select(GroceryEssentialsItem).where(
+#                 GroceryEssentialsItem.grocery_essentials_request_id == r.id
+#             )
+#         )
+#         items = item_result.scalars().all()
 
-        response.append({
-            "id": r.id,
-            "user_id": r.user_id,
-            "food_request_category_id": r.food_request_category_id,
-            "request_title": r.request_title,
-            "request_description": r.request_description,
-            "frequency_id": r.frequency_id,
-            "address": r.address,
-            "landmark": r.landmark,
-            "delivery_required": r.delivery_required,
-            "items": [
-                {
-                    "id": i.id,
-                    "item_master_id": i.item_master_id,
-                    "custom_item_name": i.custom_item_name,
-                    "quantity": float(i.quantity),
-                    "unit_id": i.unit_id,
-                    "priority_id": i.priority_id
-                }
-                for i in items
-            ]
-        })
+#         response.append({
+#             "id": r.id,
+#             "user_id": r.user_id,
+#             "food_request_category_id": r.food_request_category_id,
+#             "request_title": r.request_title,
+#             "request_description": r.request_description,
+#             "frequency_id": r.frequency_id,
+#             "address": r.address,
+#             "landmark": r.landmark,
+#             "delivery_required": r.delivery_required,
+#             "items": [
+#                 {
+#                     "id": i.id,
+#                     "item_master_id": i.item_master_id,
+#                     "custom_item_name": i.custom_item_name,
+#                     "quantity": float(i.quantity),
+#                     "unit_id": i.unit_id,
+#                     "priority_id": i.priority_id
+#                 }
+#                 for i in items
+#             ]
+#         })
 
-    return response
+#     return response

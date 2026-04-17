@@ -82,7 +82,9 @@ from src.db.session import get_db
 from datetime import datetime
 
 # 1. Register User
-async def register_user(payload: RegisterRequest, db: AsyncSession) -> TokenResponse:
+from src.schemas.auth import RegisterResponse
+
+async def register_user(payload: RegisterRequest, db: AsyncSession) -> RegisterResponse:
     # Check if email exists
     result = await db.execute(select(User).where(User.email == payload.email))
     if result.scalar_one_or_none():
@@ -134,15 +136,8 @@ async def register_user(payload: RegisterRequest, db: AsyncSession) -> TokenResp
     await db.commit()
     await db.refresh(user)
 
-    access_token = create_access_token({"sub": str(user.id), "phone": user.phone})
-    refresh_token = create_refresh_token({"sub": str(user.id), "phone": user.phone})
-
-    return TokenResponse(
-        message="Registration successful",
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserInfo.model_validate(user)
-    )
+    # Registration success, do not return tokens or user info
+    return RegisterResponse(message="Registration successful")
 
 # 2. Send OTP
 async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> OTPSentResponse:
@@ -174,14 +169,11 @@ async def verify_otp_login(payload: VerifyOTPRequest, db: AsyncSession) -> Token
         raise HTTPException(status_code=404, detail="User not found")
     access_token = create_access_token({"sub": str(user.id), "email": user.email})
     refresh_token = create_refresh_token({"sub": str(user.id), "email": user.email})
-    user_last_logged_as_result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user.id))
-    user_last_logged_as_obj = user_last_logged_as_result.scalar_one_or_none()
-    user_last_logged_as = str(user_last_logged_as_obj.switched_to_type) if user_last_logged_as_obj else None
     return TokenResponse(
         message="Login successful",
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserInfo.model_validate({**user.__dict__, "last_logged_as": user_last_logged_as}),
+        user=UserInfo.model_validate(user.__dict__),
     )
 
 # 4. Refresh Access Token

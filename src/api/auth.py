@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.schemas.auth import (
-    RegisterRequest, TokenResponse, SendOTPRequest, OTPSentResponse,
+    RegisterRequest, RegisterResponse, TokenResponse, SendOTPRequest, OTPSentResponse,
     VerifyOTPRequest, RefreshTokenRequest, NewAccessTokenResponse, ErrorResponse
 )
 from src.services.auth_service import (
@@ -11,9 +11,10 @@ from src.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
+
 @router.post(
     "/register",
-    response_model=TokenResponse,
+    response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     responses={409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
 )

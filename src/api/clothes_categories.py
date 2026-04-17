@@ -15,12 +15,12 @@ from src.db.session import get_db
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/categories",
+    prefix="/api/v1/clothes",
     tags=["Clothes Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/request-categories", response_model=list[dict])
+@router.get("/receiver-categories", response_model=list[dict])
 async def get_request_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(RequestCategory))
     request_categories = result.scalars().all()
@@ -36,20 +36,20 @@ async def get_clothes_age_groups(db: AsyncSession = Depends(get_db)):
         {"id": cag.id, "name": cag.name} for cag in clothes_age_groups
     ]
 
-@router.get("/clothing-categories", response_model=list[dict])
-async def get_clothing_categories(db: AsyncSession = Depends(get_db)):
+@router.get("/clothes-categories", response_model=list[dict])
+async def get_clothes_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(ClothingCategory))
-    clothing_categories = result.scalars().all()
+    clothes_categories = result.scalars().all()
     return [
-        {"id": cc.id, "name": cc.name} for cc in clothing_categories
+        {"id": cc.id, "name": cc.name} for cc in clothes_categories
     ]
 
-@router.get("/clothing-size-rows", response_model=list[dict])
-async def get_clothing_size_rows(db: AsyncSession = Depends(get_db)):
+@router.get("/clothes-size-rows", response_model=list[dict])
+async def get_clothes_size_rows(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(ClothingSizeRow))
-    clothing_size_rows = result.scalars().all()
+    clothes_size_rows = result.scalars().all()
     return [
-        {"id": csr.id, "name": csr.name} for csr in clothing_size_rows
+        {"id": csr.id, "name": csr.name} for csr in clothes_size_rows
     ]
 
 @router.post("/clothes-request", response_model=dict)
@@ -136,80 +136,80 @@ async def create_full_clothes_request(
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/clothes-request", response_model=list[dict])
-async def get_clothes_requests(user_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
-    query = select(ClothesRequest)
-    if user_id:
-        query = query.where(ClothesRequest.user_id == user_id)
+# @router.get("/clothes-request", response_model=list[dict])
+# async def get_clothes_requests(user_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+#     query = select(ClothesRequest)
+#     if user_id:
+#         query = query.where(ClothesRequest.user_id == user_id)
 
-    result = await db.execute(query)
-    requests = result.scalars().all()
-    response_data = []
+#     result = await db.execute(query)
+#     requests = result.scalars().all()
+#     response_data = []
 
-    for r in requests:
-        ben_result = await db.execute(
-            select(ClothesRequestBeneficiaries).where(
-                ClothesRequestBeneficiaries.clothes_request_id == r.id
-            )
-        )
-        beneficiaries = ben_result.scalars().all()
-        ben_list = []
+#     for r in requests:
+#         ben_result = await db.execute(
+#             select(ClothesRequestBeneficiaries).where(
+#                 ClothesRequestBeneficiaries.clothes_request_id == r.id
+#             )
+#         )
+#         beneficiaries = ben_result.scalars().all()
+#         ben_list = []
 
-        for ben in beneficiaries:
-            size_result = await db.execute(
-                select(ClothesRequestBeneficiariesSizes).where(
-                    ClothesRequestBeneficiariesSizes.beneficiary_id == ben.id
-                )
-            )
-            sizes = size_result.scalars().all()
+#         for ben in beneficiaries:
+#             size_result = await db.execute(
+#                 select(ClothesRequestBeneficiariesSizes).where(
+#                     ClothesRequestBeneficiariesSizes.beneficiary_id == ben.id
+#                 )
+#             )
+#             sizes = size_result.scalars().all()
 
 
-            # Fetch verification_document and beneficiary_photo as objects (id and file_path)
-            verification_doc = None
-            beneficiary_photo = None
+#             # Fetch verification_document and beneficiary_photo as objects (id and file_path)
+#             verification_doc = None
+#             beneficiary_photo = None
 
-            if ben.verification_document_id:
-                res = await db.execute(select(Attachment).where(Attachment.id == ben.verification_document_id))
-                att = res.scalar_one_or_none()
-                if att:
-                    verification_doc = {"id": att.id, "file_path": att.file_path}
+#             if ben.verification_document_id:
+#                 res = await db.execute(select(Attachment).where(Attachment.id == ben.verification_document_id))
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     verification_doc = {"id": att.id, "file_path": att.file_path}
 
-            if ben.beneficiary_photo_id:
-                res = await db.execute(select(Attachment).where(Attachment.id == ben.beneficiary_photo_id))
-                att = res.scalar_one_or_none()
-                if att:
-                    beneficiary_photo = {"id": att.id, "file_path": att.file_path}
+#             if ben.beneficiary_photo_id:
+#                 res = await db.execute(select(Attachment).where(Attachment.id == ben.beneficiary_photo_id))
+#                 att = res.scalar_one_or_none()
+#                 if att:
+#                     beneficiary_photo = {"id": att.id, "file_path": att.file_path}
 
-            ben_list.append({
-                "id": ben.id,
-                "person_name": ben.person_name,
-                "age_group": ben.age_group,
-                "gender_preference": ben.gender_preference,
-                "clothing_category_id": ben.clothing_category_id,
-                "need_by_date": ben.need_by_date,
-                "urgency_level_id": ben.urgency_level_id,
-                "verification_document": verification_doc,
-                "beneficiary_photo": beneficiary_photo,
-                "sizes": [
-                    {
-                        "id": s.id,
-                        "clothing_type": s.clothing_type,
-                        "size_id": s.size_id,
-                        "quantity": s.quantity
-                    }
-                    for s in sizes
-                ]
-            })
+#             ben_list.append({
+#                 "id": ben.id,
+#                 "person_name": ben.person_name,
+#                 "age_group": ben.age_group,
+#                 "gender_preference": ben.gender_preference,
+#                 "clothing_category_id": ben.clothing_category_id,
+#                 "need_by_date": ben.need_by_date,
+#                 "urgency_level_id": ben.urgency_level_id,
+#                 "verification_document": verification_doc,
+#                 "beneficiary_photo": beneficiary_photo,
+#                 "sizes": [
+#                     {
+#                         "id": s.id,
+#                         "clothing_type": s.clothing_type,
+#                         "size_id": s.size_id,
+#                         "quantity": s.quantity
+#                     }
+#                     for s in sizes
+#                 ]
+#             })
 
-        response_data.append({
-            "id": r.id,
-            "user_id": r.user_id,
-            "category_id": r.category_id,
-            "request_title": r.request_title,
-            "request_description": r.request_description,
-            "status_id": r.status_id,
-            "urgency_id": r.urgency_id,
-            "beneficiaries": ben_list
-        })
+#         response_data.append({
+#             "id": r.id,
+#             "user_id": r.user_id,
+#             "category_id": r.category_id,
+#             "request_title": r.request_title,
+#             "request_description": r.request_description,
+#             "status_id": r.status_id,
+#             "urgency_id": r.urgency_id,
+#             "beneficiaries": ben_list
+#         })
 
-    return response_data
+#     return response_data

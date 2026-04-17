@@ -50,15 +50,11 @@ class RefreshTokenRequest(BaseModel):
 class UserInfo(BaseModel):
     id: int
     name: str
-    email: str
-    phone: str
-    organization_name: Optional[str]
-    city: Optional[str]
-    state: Optional[str]
     type_donor_id: Optional[int]
-    donor_type_subtype: Optional[int]
-    last_logged_as: Optional[str] = None
-    model_config = ConfigDict(from_attributes=True)
+
+
+class RegisterResponse(BaseModel):
+    message: str
 
 class TokenResponse(BaseModel):
     message: str

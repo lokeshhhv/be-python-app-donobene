@@ -14,21 +14,21 @@ from src.schemas.EducationRequestPayload import EducationRequestPayload
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/categories",
+    prefix="/api/v1/education",
     tags=["Education Categories"],
-    dependencies=[Depends(get_current_user_id)],
+    # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/education-support-documents", response_model=list[dict])
-async def get_education_support_documents(db: AsyncSession = Depends(get_db)):
+@router.get("/support-documents", response_model=list[dict])
+async def get__support_documents(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EducationSupportDocument))
     support_documents = result.scalars().all()
     return [
         {"id": doc.id, "name": doc.name} for doc in support_documents
     ]
 
-@router.get("/education-support-types", response_model=list[dict])
-async def get_education_support_types(db: AsyncSession = Depends(get_db)):
+@router.get("/support-types", response_model=list[dict])
+async def get_support_types(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EducationSupportType))
     support_types = result.scalars().all()
     return [
@@ -127,68 +127,68 @@ async def create_education_request(
         await db.rollback()
         raise HTTPException(500, str(e))
 
-@router.get("/education-request", response_model=List[dict])
-async def get_education_requests(
-    user_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    try:
-        # 1️⃣ Fetch all education requests
-        query = select(EducationRequest)
-        if user_id is not None:
-            query = query.where(EducationRequest.user_id == user_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
+# @router.get("/education-request", response_model=List[dict])
+# async def get_education_requests(
+#     user_id: Optional[int] = None,
+#     db: AsyncSession = Depends(get_db)
+# ):
+#     try:
+#         # 1️⃣ Fetch all education requests
+#         query = select(EducationRequest)
+#         if user_id is not None:
+#             query = query.where(EducationRequest.user_id == user_id)
+#         result = await db.execute(query)
+#         requests = result.scalars().all()
 
-        response = []
+#         response = []
 
-        # 2️⃣ Loop through each request
-        for r in requests:
-            # Fetch all students for this request
-            stu_result = await db.execute(
-                select(EducationRequestStudents).where(
-                    EducationRequestStudents.education_request_id == r.id
-                )
-            )
-            students = stu_result.scalars().all()
+#         # 2️⃣ Loop through each request
+#         for r in requests:
+#             # Fetch all students for this request
+#             stu_result = await db.execute(
+#                 select(EducationRequestStudents).where(
+#                     EducationRequestStudents.education_request_id == r.id
+#                 )
+#             )
+#             students = stu_result.scalars().all()
 
-            # Prepare student data
-            student_data = [
-                {
-                    "id": s.id,
-                    "person_name": s.person_name,
-                    "age": s.age,
-                    "grade_level": s.grade_level,
-                    "education_support_type_id": s.education_support_type_id,
-                    "amount_requested": float(s.amount_requested) if s.amount_requested else None,
-                    "institution_name": s.institution_name,
-                    "college_id": s.college_id,
-                    "institution_address": s.institution_address,
-                    "contact_person_name": s.contact_person_name,
-                    "contact_person_phone": s.contact_person_phone,
-                    "verification_document_id": s.verification_document_id,
-                    "education_support_document_id": s.education_support_document_id
-                }
-                for s in students
-            ]
+#             # Prepare student data
+#             student_data = [
+#                 {
+#                     "id": s.id,
+#                     "person_name": s.person_name,
+#                     "age": s.age,
+#                     "grade_level": s.grade_level,
+#                     "education_support_type_id": s.education_support_type_id,
+#                     "amount_requested": float(s.amount_requested) if s.amount_requested else None,
+#                     "institution_name": s.institution_name,
+#                     "college_id": s.college_id,
+#                     "institution_address": s.institution_address,
+#                     "contact_person_name": s.contact_person_name,
+#                     "contact_person_phone": s.contact_person_phone,
+#                     "verification_document_id": s.verification_document_id,
+#                     "education_support_document_id": s.education_support_document_id
+#                 }
+#                 for s in students
+#             ]
 
-            # Append to final response
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "category_id": r.category_id,
-                "request_title": r.request_title,
-                "request_description": r.request_description,
-                "status_id": r.status_id,
-                "urgency_id": r.urgency_id,
-                "verified": r.verified,
-                "reject_reason": r.reject_reason,
-                "created_at": r.created_at,
-                "updated_at": r.updated_at,
-                "students": student_data
-            })
+#             # Append to final response
+#             response.append({
+#                 "id": r.id,
+#                 "user_id": r.user_id,
+#                 "category_id": r.category_id,
+#                 "request_title": r.request_title,
+#                 "request_description": r.request_description,
+#                 "status_id": r.status_id,
+#                 "urgency_id": r.urgency_id,
+#                 "verified": r.verified,
+#                 "reject_reason": r.reject_reason,
+#                 "created_at": r.created_at,
+#                 "updated_at": r.updated_at,
+#                 "students": student_data
+#             })
 
-        return response
+#         return response
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
