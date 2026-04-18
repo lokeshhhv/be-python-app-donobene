@@ -50,7 +50,9 @@ class RefreshTokenRequest(BaseModel):
 class UserInfo(BaseModel):
     id: int
     name: str
-    type_donor_id: Optional[int]
+    user_type_id: Optional[int]
+    user_subtype_id: Optional[int]
+    email: EmailStr
 
 
 class RegisterResponse(BaseModel):

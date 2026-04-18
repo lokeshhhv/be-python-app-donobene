@@ -169,11 +169,14 @@ async def verify_otp_login(payload: VerifyOTPRequest, db: AsyncSession) -> Token
         raise HTTPException(status_code=404, detail="User not found")
     access_token = create_access_token({"sub": str(user.id), "email": user.email})
     refresh_token = create_refresh_token({"sub": str(user.id), "email": user.email})
+    user_dict = user.__dict__.copy()
+    user_dict["user_type_id"] = user_dict.get("type_donor_id")
+    user_dict["user_subtype_id"] = user_dict.get("donor_type_subtype")
     return TokenResponse(
         message="Login successful",
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserInfo.model_validate(user.__dict__),
+        user=UserInfo.model_validate(user_dict),
     )
 
 # 4. Refresh Access Token

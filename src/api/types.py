@@ -28,63 +28,62 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("/current-userdata/{user_id}", response_model=list[UserProfileResponse])
+@router.get("/current-userdata/{user_id}", response_model=UserProfileResponse)
 async def get_users(
     user_id: int,
     db: AsyncSession = Depends(get_db),
 ):
     from src.models.types import Attachment, TypeDonor, UserType
     result = await db.execute(select(User).where(User.id == user_id))
-    users = result.scalars().all()
-    user_dicts = []
-    for user in users:
-        # Build attachment info if present
-        attachment = None
-        if hasattr(user, 'attachment_id') and user.attachment_id:
-            attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
-            attachment_obj = attach_result.scalar_one_or_none()
-            if attachment_obj:
-                attachment = AttachmentResponse(
-                    id=attachment_obj.id,
-                    document_type_id=attachment_obj.document_type_id,
-                    user_id=attachment_obj.user_id,
-                    request_id=attachment_obj.request_id,
-                    file_path=attachment_obj.file_path,
-                    category_id=attachment_obj.category_id,
-                    created_at=str(attachment_obj.created_at) if attachment_obj.created_at else None
-                )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Build attachment info if present
+    attachment = None
+    if hasattr(user, 'attachment_id') and user.attachment_id:
+        attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
+        attachment_obj = attach_result.scalar_one_or_none()
+        if attachment_obj:
+            attachment = AttachmentResponse(
+                id=attachment_obj.id,
+                document_type_id=attachment_obj.document_type_id,
+                user_id=attachment_obj.user_id,
+                request_id=attachment_obj.request_id,
+                file_path=attachment_obj.file_path,
+                category_id=attachment_obj.category_id,
+                created_at=str(attachment_obj.created_at) if attachment_obj.created_at else None
+            )
 
-        # Bring type_donor name
-        type_donor_name = None
-        if hasattr(user, 'type_donor_id') and user.type_donor_id:
-            td_result = await db.execute(select(TypeDonor).where(TypeDonor.id == user.type_donor_id))
-            td_obj = td_result.scalar_one_or_none()
-            if td_obj:
-                type_donor_name = td_obj.name
+    # Bring type_donor name
+    type_donor_name = None
+    if hasattr(user, 'type_donor_id') and user.type_donor_id:
+        td_result = await db.execute(select(TypeDonor).where(TypeDonor.id == user.type_donor_id))
+        td_obj = td_result.scalar_one_or_none()
+        if td_obj:
+            type_donor_name = td_obj.name
 
-        # Bring user_type name (donor_type_subtype)
-        user_type_name = None
-        if hasattr(user, 'donor_type_subtype') and user.donor_type_subtype:
-            ut_result = await db.execute(select(UserType).where(UserType.id == user.donor_type_subtype))
-            ut_obj = ut_result.scalar_one_or_none()
-            if ut_obj:
-                user_type_name = ut_obj.name
+    # Bring user_type name (donor_type_subtype)
+    user_type_name = None
+    if hasattr(user, 'donor_type_subtype') and user.donor_type_subtype:
+        ut_result = await db.execute(select(UserType).where(UserType.id == user.donor_type_subtype))
+        ut_obj = ut_result.scalar_one_or_none()
+        if ut_obj:
+            user_type_name = ut_obj.name
 
-        user_dicts.append(UserProfileResponse(
-            id=user.id,
-            name=user.name,
-            email=user.email,
-            phone=user.phone,
-            organization_name=user.organization_name,
-            city=user.city,
-            pincode=user.pincode,
-            address=user.address,
-            state=user.state,
-            attachment=attachment,
-            type_donor_name=type_donor_name,
-            user_type_name=user_type_name
-        ))
-    return user_dicts
+    return UserProfileResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        phone=user.phone,
+        organization_name=user.organization_name,
+        city=user.city,
+        pincode=user.pincode,
+        address=user.address,
+        state=user.state,
+        attachment=attachment,
+        user_type=type_donor_name,
+        user_subtype=user_type_name
+    )
 
 @router.get("/user-subtypes", response_model=list[dict])
 async def get_user_types(

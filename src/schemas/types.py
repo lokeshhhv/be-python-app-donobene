@@ -25,5 +25,5 @@ class UserProfileResponse(BaseModel):
     address: Optional[str]
     state: Optional[str]
     attachment: Optional[AttachmentResponse]
-    type_donor_name: Optional[str]
-    user_type_name: Optional[str]
+    user_type: Optional[str]
+    user_subtype: Optional[str]
