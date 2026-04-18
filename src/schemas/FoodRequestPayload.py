@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 # Common Base
 class NameBase(BaseModel):
@@ -110,6 +110,13 @@ class FoodRequestCategoryBase(BaseModel):
     food_type: str
     food_type_description: str
 
+class FoodRequestBase(BaseModel):
+    food_type: str
+    food_type_description: str
+    size: Optional[str] = None
+    icon: Optional[str] = None
+    value: Optional[str] = None
+
 
 # 🔹 Create
 class FoodRequestCategoryCreate(FoodRequestCategoryBase):
@@ -117,8 +124,9 @@ class FoodRequestCategoryCreate(FoodRequestCategoryBase):
 
 
 # 🔹 Response
-class FoodRequestCategoryResponse(FoodRequestCategoryBase):
+class FoodRequestCategoryResponse(FoodRequestBase):
     id: int
+    size: Union[str, int, None] = None
 
     class Config:
         from_attributes = True

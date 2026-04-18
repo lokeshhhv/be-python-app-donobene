@@ -91,6 +91,10 @@ class FoodRequestCategory(Base):
     id = Column(Integer, primary_key=True, index=True)
     food_type = Column(String(50), nullable=False)
     food_type_description = Column(String(255), nullable=False)
+    icon = Column(String(255), nullable=True)
+    size = Column(String(50), nullable=True)
+    value = Column(String(50), nullable=True)
+
 
 class FoodRequestsCookedFood(Base):
     __tablename__ = "food_requests_cooked_food"
