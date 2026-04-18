@@ -20,14 +20,6 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/receiver-categories", response_model=list[dict])
-async def get_request_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RequestCategory))
-    request_categories = result.scalars().all()
-    return [
-        {"id": rc.id, "category_id": rc.category_id, "category_type": rc.category_type} for rc in request_categories
-    ]
-
 @router.get("/clothes-age-groups", response_model=list[dict])
 async def get_clothes_age_groups(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(ClothesAgeGroup))

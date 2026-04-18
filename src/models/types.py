@@ -44,6 +44,8 @@ class RequestCategory(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     category_id = Column(String(50), nullable=False, unique=True)
     category_type = Column(String(100), nullable=False, comment="e.g., Food, Clothes, Education, etc.")
+    backgroundColor = Column(String(50), nullable=True)
+    icon = Column(String(255), nullable=True)
 
 class RequestStatusMaster(Base):
     __tablename__ = "request_status_master"
@@ -77,3 +79,4 @@ class TypeDonor(Base):
     icon_color = Column(String(50), nullable=True)
     icon_bg = Column(String(50), nullable=True)
     description = Column(String(255), nullable=True)
+    flag = Column(Integer, nullable=False, default=1)
