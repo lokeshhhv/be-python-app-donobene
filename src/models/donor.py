@@ -20,6 +20,8 @@ class DonorCategory(Base):
     id = Column(Integer, primary_key=True, index=True)
     category_id = Column(String(50), unique=True, nullable=False)
     category_type = Column(String(100), nullable=False)
+    backgroundColor = Column(String(50), nullable=True)
+    icon = Column(String(255), nullable=True)
 
 class FoodDonation(Base):
     __tablename__ = "food_donations"
@@ -113,6 +115,7 @@ class MedicalDonationCategory(Base):
     name = Column(String(100), nullable=False)
     description = Column(String(255))
     icon = Column(String(100))
+    size = Column(String(50))
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 

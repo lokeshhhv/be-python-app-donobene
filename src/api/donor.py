@@ -94,12 +94,12 @@ async def create_food_donation(
         await db.rollback()
         raise HTTPException(500, f"An error occurred while creating the food donation: {str(e)}")
 
-@router.get("/food-donation-categories", response_model=list[dict])
+@router.get("/donation-categories", response_model=list[dict])
 async def get_food_donation_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DonorCategory))
     categories = result.scalars().all()
     return [
-        {"id": cat.id, "category_id": cat.category_id, "category_type": cat.category_type} for cat in categories
+        {"id": cat.id, "category_id": cat.category_id, "category_type": cat.category_type, "backgroundColor": cat.backgroundColor, "icon": cat.icon} for cat in categories
     ]
 
 @router.get("/food-donation-delivery-preferences", response_model=list[dict])
@@ -228,7 +228,18 @@ async def create_clothes_donation(
 async def get_medical_donation_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(MedicalDonationCategory).where(MedicalDonationCategory.is_active == True))
     categories = result.scalars().all()
-    return categories
+    # Cast size to string for response validation
+    return [
+        MedicalDonationCategorySchema(
+            id=cat.id,
+            name=cat.name,
+            description=cat.description,
+            icon=cat.icon,
+            size=str(cat.size) if cat.size is not None else None,
+            is_active=cat.is_active
+        )
+        for cat in categories
+    ]
 
 
 @router.get("/stemcell-donations", response_model=list[DonorStemcellDonationSchema])

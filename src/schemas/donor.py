@@ -88,6 +88,7 @@ class MedicalDonationCategorySchema(BaseModel):
     name: str
     description: Optional[str]
     icon: Optional[str]
+    size: Optional[str]
     is_active: Optional[bool]
 
 
