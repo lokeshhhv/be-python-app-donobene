@@ -286,7 +286,7 @@ async def get_my_request_counts(
         }
     }
 
-@router.get("/receiver-requests/user-filled/", response_model=dict)
+@router.get("/receiver-requests/user-filled", response_model=dict)
 async def get_all_user_data(
     user_id: Optional[int] = None,
     status_id: Optional[int] = None,
