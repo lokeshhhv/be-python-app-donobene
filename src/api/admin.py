@@ -20,7 +20,7 @@ from fastapi import Query
 router = APIRouter(
     prefix="/api/v1/admin", 
     tags=["Admin"], 
-    dependencies=[Depends(get_current_user_id)]
+    # dependencies=[Depends(get_current_user_id)]
 )
 
 @router.get("/admin-requests-filters")

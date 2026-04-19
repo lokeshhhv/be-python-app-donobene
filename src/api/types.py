@@ -23,9 +23,14 @@ from src.models.types import Gender
 from src.core.dependencies import get_current_user_id
 
 router = APIRouter(
-    prefix="/api/v1/types", 
-    tags=["Types"], 
+    prefix="/api/v1/types",
+    tags=["Types"],
     # dependencies=[Depends(get_current_user_id)]
+)
+
+public_router = APIRouter(
+    prefix="/api/v1/types",
+    tags=["Types"]
 )
 
 @router.get("/receiver-categories", response_model=list[dict])
@@ -93,7 +98,8 @@ async def get_users(
         user_subtype=user_type_name
     )
 
-@router.get("/user-subtypes", response_model=list[dict])
+
+@public_router.get("/user-subtypes", response_model=list[dict])
 async def get_user_types(
     db: AsyncSession = Depends(get_db),
 ):
@@ -103,7 +109,8 @@ async def get_user_types(
         {"id": ut.id, "name": ut.name} for ut in user_types
     ]
 
-@router.get("/user-types", response_model=list[dict])
+
+@public_router.get("/user-types", response_model=list[dict])
 async def get_donor_types(
     db: AsyncSession = Depends(get_db),
 ):

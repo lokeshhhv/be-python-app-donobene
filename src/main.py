@@ -30,7 +30,7 @@ from src.models import (
 # Import routers
 from src.api.auth import router as auth_router
 from src.api.email_api import router as email_api_router
-from src.api.types import router as types_router
+from src.api.types import router as types_router, public_router
 from src.api.dobepayment import router as dobepayment_router
 from src.api.clothes_categories import router as clothes_categories
 from src.api.education_categories import router as education_categories
@@ -67,6 +67,7 @@ app.include_router(shelter_categories)
 app.include_router(food_categories)
 app.include_router(admin_router)
 app.include_router(donor_router)
+app.include_router(public_router) 
 
 # Health check
 @app.get("/")
