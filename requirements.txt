@@ -18,3 +18,11 @@ jinja2
 aiosmtplib
 typing-extensions
 email-validator
+razorpay
+trio
+websockets
+PyYAML
+beautifulsoup4
+tinycss2
+webencodings
+mysql-connector-python
