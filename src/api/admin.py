@@ -34,8 +34,7 @@ async def get_filtered_requests(
     shelter_q = text("""
         SELECT 
         sr.id,
-        sr.user_id,
-
+		u.name,
         rc.category_type AS category,
         rsm.name AS status,
         ul.name AS urgency,
@@ -82,6 +81,9 @@ async def get_filtered_requests(
 
     LEFT JOIN shelter_duration_options sdo 
     ON sb.duration_option_id = sdo.id
+    
+    LEFT JOIN users u
+    ON u.id = sr.user_id
 
     WHERE
         (:status_id IS NULL OR sr.status_id = :status_id)
@@ -90,110 +92,211 @@ async def get_filtered_requests(
 
     # SPORTS:
     sports_q = text("""
-        SELECT 
-            sr.id,
-            sr.user_id,
+       SELECT 
+        sr.id,
 
-            rc.category_type AS category,
-            rsm.name AS status,
-            ul.name AS urgency,
+        u.name as user_name,
+        rc.category_type AS category,
+        rsm.name AS status,
+        ul.name AS urgency,
 
-            sr.request_title,
-            sr.request_description,
+        sr.request_title,
+        sr.request_description,
+        sr.created_at,
+        sr.updated_at,
+        
+        srb.person_name,
+        srb.age_group,
+        g.gender_name AS gender,
+        pl.name AS playing_level,
+        srb.achievement,
+        srb.amount_requested,
+        srb.event_date,
+        srb.institution_name,
+        srb.phone,
 
-            srb.person_name,
-            srb.age_group,
+        att1.file_path as verification_document,
+        att2.file_path as achievement_document,
 
-            g.gender_name AS gender,
-            pl.name AS playing_level,
-            sc.name AS sports_category,
+        -- ✅ safer aggregation
+        GROUP_CONCAT(DISTINCT sc.name ORDER BY sc.name) AS sports_category_name,
+        GROUP_CONCAT(DISTINCT sst.name ORDER BY sst.name) AS sports_support_name
 
-            sr.created_at,
-            sr.updated_at
+    FROM sports_requests sr
 
-        FROM sports_requests sr
+    LEFT JOIN sports_request_beneficiaries srb 
+        ON sr.id = srb.sports_request_id
 
-        LEFT JOIN sports_request_beneficiaries srb 
-            ON sr.id = srb.sports_request_id
+    LEFT JOIN request_categories rc 
+        ON sr.category_id = rc.id
 
-        LEFT JOIN request_categories rc 
-            ON sr.category_id = rc.id
+    LEFT JOIN request_status_master rsm 
+        ON sr.status_id = rsm.id
 
-        LEFT JOIN request_status_master rsm 
-            ON srb.status_id = rsm.id
+    LEFT JOIN urgency_levels ul 
+        ON sr.urgency_id = ul.id
 
-        LEFT JOIN urgency_levels ul 
-            ON srb.urgency_id = ul.id
+    LEFT JOIN gender g 
+        ON srb.gender_id = g.id
 
-        LEFT JOIN gender g 
-            ON srb.gender_id = g.id
+    LEFT JOIN playing_levels pl 
+        ON srb.playing_level_id = pl.id
 
-        LEFT JOIN playing_levels pl 
-            ON srb.playing_level_id = pl.id
+    LEFT JOIN users u
+        ON u.id = sr.user_id
 
-        LEFT JOIN sports_categories sc 
-            ON srb.sports_category_id = sc.id
-        WHERE (:status_id IS NULL OR srb.status_id = :status_id)
-        AND (:category_id IS NULL OR sr.category_id = :category_id)
+    LEFT JOIN attachments att1
+        ON srb.verification_document_id = att1.id
+
+    LEFT JOIN attachments att2
+        ON srb.achievement_document_id = att2.id
+
+    LEFT JOIN sports_categories sc 
+        ON JSON_CONTAINS(srb.sports_category_ids, CAST(sc.id AS JSON))
+
+    LEFT JOIN sports_support_type sst 
+        ON JSON_CONTAINS(srb.support_type_ids, CAST(sst.id AS JSON))
+
+    WHERE (:status_id IS NULL OR sr.status_id = :status_id)
+    AND (:category_id IS NULL OR sr.category_id = :category_id)
+
+    GROUP BY 
+        sr.id,
+        u.name,
+        rc.category_type,
+        rsm.name,
+        ul.name,
+        sr.request_title,
+        sr.request_description,
+        sr.created_at,
+        sr.updated_at,
+        srb.person_name,
+        srb.age_group,
+        g.gender_name,
+        pl.name,
+        srb.achievement,
+        srb.amount_requested,
+        srb.event_date,
+        srb.institution_name,
+        srb.phone,
+        att1.file_path,
+        att2.file_path;
+                    
     """)
 
     # Medical:
     medical_q = text(""" 
         SELECT 
-            mr.id,
-            mr.user_id,
+        mr.id,
+        u.name as user_name,
+        rc.category_type as category_name,
+        rsm.name as status_name,
+        ul.name as urgency_name,
 
-            rc.category_type AS category,
-            rsm.name AS status,
-            ul.name AS urgency,
+        mr.request_title,
+        mr.request_description,
+        mr.created_at,
+        mr.updated_at,
+        mr.verified,
+        mr.reject_reason,
+        
+        p.medical_request_id,
+        p.patient_name,
+        p.age,
+        g.gender_name,
+        p.medical_condition,
+        bg.name as blood_group_name,
+        mc.name as medical_category_name,
+        p.hospital_name,
+        p.hospital_address,
+        p.doctor_name,
+        p.financial_information,
+        p.amount_paid,
+        p.amount_requested,
+        p.funds_needed_by,
+        p.contact_information,
+        p.emergency_contact_name,
 
-            mr.request_title,
-            mr.request_description,
+        GROUP_CONCAT(DISTINCT st.name ORDER BY st.name) AS support_type_names,
 
-            p.patient_name,
-            p.age,
-            g.gender_name AS gender,
+        at1.file_path AS verification_document_filepath,
+        at2.file_path AS prescription_document_filepath,
+        at3.file_path AS estimation_document_filepath
 
-            p.medical_condition,
-            bg.name AS blood_group,
-            mc.name AS medical_category,
+    FROM medical_requests mr
 
-            st.name AS support_type,
+    LEFT JOIN patients p
+        ON mr.id = p.medical_request_id
 
-            mr.created_at,
-            mr.updated_at
+    LEFT JOIN users u
+        ON u.id = mr.user_id
 
-        FROM medical_requests mr
+    LEFT JOIN request_categories rc 
+        ON rc.id = mr.category_id
 
-        LEFT JOIN patients p 
-            ON mr.id = p.medical_request_id
+    LEFT JOIN request_status_master rsm 
+        ON rsm.id = mr.status_id
 
-        LEFT JOIN patient_support_types pst 
-            ON p.id = pst.patient_id
+    LEFT JOIN urgency_levels ul 
+        ON ul.id = mr.urgency_id
 
-        LEFT JOIN support_types st 
-            ON pst.support_type_id = st.id
+    LEFT JOIN gender g
+        ON g.id = p.gender_id
 
-        LEFT JOIN blood_groups bg 
-            ON p.blood_group_id = bg.id
+    LEFT JOIN blood_groups bg
+        ON p.blood_group_id = bg.id
 
-        LEFT JOIN medical_categories mc 
-            ON p.medical_category_id = mc.id
+    LEFT JOIN medical_categories mc
+        ON p.medical_category_id = mc.id
 
-        LEFT JOIN gender g 
-            ON p.gender_id = g.id
+    -- ✅ FIXED JSON JOIN
+    LEFT JOIN support_types st
+        ON JSON_CONTAINS(p.support_type_ids, CAST(st.id AS JSON))
 
-        LEFT JOIN request_categories rc 
-            ON mr.category_id = rc.id
+    LEFT JOIN attachments at1 
+        ON p.attachment_id = at1.id
 
-        LEFT JOIN request_status_master rsm 
-            ON mr.status_id = rsm.id
+    LEFT JOIN attachments at2 
+        ON p.prescription_id = at2.id
 
-        LEFT JOIN urgency_levels ul 
-            ON mr.urgency_id = ul.id
-
-        WHERE (:status_id IS NULL OR mr.status_id = :status_id)
+    LEFT JOIN attachments at3 
+        ON p.estimation_id = at3.id
+                        
+    WHERE (:status_id IS NULL OR mr.status_id = :status_id)
         AND (:category_id IS NULL OR mr.category_id = :category_id)
+
+    GROUP BY 
+    mr.id,
+    u.name,
+    rc.category_type,
+    rsm.name,
+    ul.name,
+    mr.request_title,
+    mr.request_description,
+    mr.created_at,
+    mr.updated_at,
+    mr.verified,
+    mr.reject_reason,
+    p.id,
+    p.medical_request_id,
+    p.patient_name,
+    p.age,
+    g.gender_name,
+    p.medical_condition,
+    bg.name,
+    mc.name,
+    p.hospital_name,
+    p.hospital_address,
+    p.doctor_name,
+    p.financial_information,
+    p.amount_paid,
+    p.amount_requested,
+    p.funds_needed_by,
+    p.contact_information,
+    p.emergency_contact_name,
+    at1.file_path,
+    at2.file_path,
+    at3.file_path;
     """)
 
     # Education:
@@ -221,10 +324,9 @@ async def get_filtered_requests(
 
         es.contact_person_name,
         es.contact_person_phone,
-
-        es.verification_document_id,
-        es.education_support_document_id,
-
+        at1.file_path AS verification_document_filepath,
+        at2.file_path AS achievement_document_filepath,
+	
         er.created_at,
         er.updated_at
 
@@ -244,7 +346,8 @@ async def get_filtered_requests(
 
     LEFT JOIN education_support_types est 
         ON es.education_support_type_id = est.id
-	
+	LEFT JOIN attachments at1 ON es.verification_document_id = at1.id
+    LEFT JOIN attachments at2 ON es.education_support_document_id = at2.id
     WHERE (:status_id IS NULL OR er.status_id = :status_id)
         AND (:category_id IS NULL OR er.category_id = :category_id)
     """)
@@ -273,9 +376,8 @@ async def get_filtered_requests(
 
             cb.need_by_date,
 
-            cb.verification_document_id,
-            cb.beneficiary_photo_id,
-
+            at1.file_path AS verification_document_filepath,
+            at2.file_path AS achievement_document_filepath,
             cr.created_at,
             cr.updated_at
 
@@ -304,7 +406,9 @@ async def get_filtered_requests(
 
         LEFT JOIN urgency_levels ul2 
             ON cb.urgency_level_id = ul2.id
-            
+		LEFT JOIN attachments at1 ON cb.verification_document_id = at1.id
+        LEFT JOIN attachments at2 ON cb.beneficiary_photo_id = at2.id
+
         WHERE (:status_id IS NULL OR cr.status_id = :status_id)
         AND (:category_id IS NULL OR cr.category_id = :category_id)
     """)
@@ -466,370 +570,197 @@ async def get_filtered_requests(
     shelter_categories = {5}
     sports_categories = {6}
 
-    fetch_all = category_id is None
+    category_query_map = {
+        1: [cooked_food_q, daily_meal_q, grocery_q],
+        2: [clothes_q],
+        3: [education_q],
+        4: [medical_q],
+        5: [shelter_q],
+        6: [sports_q],
+    }
 
-    # ─── Helper: fetch shelter ───────────────────────────────────────────────
-    async def fetch_shelter():
-        query = select(ShelterRequest)
-        if status_id is not None:
-            query = query.where(ShelterRequest.status_id == status_id)
-        if category_id is not None:
-            query = query.where(ShelterRequest.category_id == category_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
+    queries_to_run = []
+    if food_category_id:
+        queries_to_run.extend(category_query_map[1])
+    elif category_id:
+        queries_to_run.extend(category_query_map.get(category_id, []))
+    else: 
+        for cat_id in category_query_map:
+            queries_to_run.extend(category_query_map[cat_id])
 
-        response = []
-        for r in requests:
-            ben_result = await db.execute(
-                select(ShelterBeneficiary).where(
-                    ShelterBeneficiary.shelter_request_id == r.id
-                )
-            )
-            beneficiaries = ben_result.scalars().all()
-            ben_data = []
-            for b in beneficiaries:
-                verification_doc = None
-                damage_doc = None
+    # Collect all results by category
+    shelter_results, sports_results, medical_results, education_results, clothes_results, grocery_results = [], [], [], [], [], []
+    cooked_results, daily_results = [], []
+    for idx, query in enumerate(queries_to_run):
+        result = await db.execute(query, {"status_id": status_id, "category_id": category_id})
+        rows = result.fetchall()
+        # Assign to correct category
+        if query == shelter_q:
+            shelter_results.extend(rows)
+        elif query == sports_q:
+            sports_results.extend(rows)
+        elif query == medical_q:
+            medical_results.extend(rows)
+        elif query == education_q:
+            education_results.extend(rows)
+        elif query == clothes_q:
+            clothes_results.extend(rows)
+        elif query == grocery_q:
+            grocery_results.extend(rows)
+        elif query == cooked_food_q:
+            cooked_results.extend(rows)
+        elif query == daily_meal_q:
+            daily_results.extend(rows)
 
-                if b.verification_document_id:
-                    res = await db.execute(select(Attachment).where(Attachment.id == b.verification_document_id))
-                    att = res.scalar_one_or_none()
-                    if att:
-                        verification_doc = {"id": att.id, "file_path": att.file_path}
-
-                if b.damage_document_id:
-                    res = await db.execute(select(Attachment).where(Attachment.id == b.damage_document_id))
-                    att = res.scalar_one_or_none()
-                    if att:
-                        damage_doc = {"id": att.id, "file_path": att.file_path}
-
-                # Fetch names for special_need, staying_type, requirement_type, duration_option
-                special_need_name = None
-                staying_type_name = None
-                requirement_type_name = None
-                duration_option_name = None
-
-                if b.special_need_id:
-                    res = await db.execute(text("SELECT name FROM shelter_special_needs WHERE id = :id"), {"id": b.special_need_id})
-                    row = res.fetchone()
-                    if row:
-                        special_need_name = row[0]
-                if b.staying_type_id:
-                    res = await db.execute(text("SELECT name FROM shelter_staying_types WHERE id = :id"), {"id": b.staying_type_id})
-                    row = res.fetchone()
-                    if row:
-                        staying_type_name = row[0]
-                if b.requirement_type_id:
-                    res = await db.execute(text("SELECT name FROM shelter_requirement_types WHERE id = :id"), {"id": b.requirement_type_id})
-                    row = res.fetchone()
-                    if row:
-                        requirement_type_name = row[0]
-                if b.duration_option_id:
-                    res = await db.execute(text("SELECT name FROM shelter_duration_options WHERE id = :id"), {"id": b.duration_option_id})
-                    row = res.fetchone()
-                    if row:
-                        duration_option_name = row[0]
-
-                ben_data.append({
-                    "id": b.id,
-                    "person_name": b.person_name,
-                    "total_members": b.total_members,
-                    "special_need": special_need_name,
-                    "staying_type": staying_type_name,
-                    "requirement_type": requirement_type_name,
-                    "duration_option": duration_option_name,
-                    "number_of_days": b.number_of_days,
-                    "verification_document": verification_doc,
-                    "damage_document": damage_doc,
-                })
-
-            # Fetch names for category, status, urgency
-            category_name = None
-            status_name = None
-            urgency_name = None
-            if r.category_id:
-                res = await db.execute(text("SELECT category_type FROM request_categories WHERE id = :id"), {"id": r.category_id})
-                row = res.fetchone()
-                if row:
-                    category_name = row[0]
-            if r.status_id:
-                res = await db.execute(text("SELECT name FROM request_status_master WHERE id = :id"), {"id": r.status_id})
-                row = res.fetchone()
-                if row:
-                    status_name = row[0]
-            if r.urgency_id:
-                res = await db.execute(text("SELECT name FROM urgency_levels WHERE id = :id"), {"id": r.urgency_id})
-                row = res.fetchone()
-                if row:
-                    urgency_name = row[0]
-
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "category": category_name,
-                "request_title": r.request_title,
-                "request_description": r.request_description,
-                "status": status_name,
-                "urgency": urgency_name,
-                "verified": r.verified,
-                "reject_reason": r.reject_reason,
-                "beneficiaries": ben_data,
-            })
-        return response
-
-    # ─── Helper: fetch sports ────────────────────────────────────────────────
-    async def fetch_sports():
-        query = select(SportsRequest)
-        if status_id is not None:
-            query = query.where(SportsRequest.status_id == status_id)
-        if category_id is not None:
-            query = query.where(SportsRequest.category_id == category_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
-
-        response = []
-        for r in requests:
-            ben_result = await db.execute(
-                select(SportsRequestBeneficiary).where(
-                    SportsRequestBeneficiary.sports_request_id == r.id
-                )
-            )
-            beneficiaries = ben_result.scalars().all()
-            ben_list = []
-            for ben in beneficiaries:
-                ben_list.append({
-                    "id": ben.id,
-                    "person_name": ben.person_name,
-                    "age_group": ben.age_group,
-                    "gender_id": ben.gender_id,
-                    "playing_level_id": ben.playing_level_id,
-                    "sports_category_ids": ben.sports_category_ids,
-                    "support_type_ids": ben.support_type_ids,
-                    "achievement": ben.achievement,
-                    "amount_requested": ben.amount_requested,
-                    "event_date": ben.event_date,
-                    "institution_name": ben.institution_name,
-                    "phone": ben.phone,
-                })
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "category_id": r.category_id,
-                "request_title": r.request_title,
-                "request_description": r.request_description,
-                "status_id": r.status_id,
-                "urgency_id": r.urgency_id,
-                "verified": r.verified,
-                "reject_reason": r.reject_reason,
-                "beneficiaries": ben_list,
-            })
-        return response
-
-    # ─── Helper: fetch medical ───────────────────────────────────────────────
-    async def fetch_medical():
-        query = select(MedicalRequest)
-        if status_id is not None:
-            query = query.where(MedicalRequest.status_id == status_id)
-        if category_id is not None:
-            query = query.where(MedicalRequest.category_id == category_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
-
-        response = []
-        for r in requests:
-            patients = (await db.execute(
-                select(Patient).where(Patient.medical_request_id == r.id)
-            )).scalars().all()
-            patient_data = []
-            for p in patients:
-                patient_data.append({
-                    "patient_name": p.patient_name,
-                    "age": p.age,
-                    "gender_id": p.gender_id,
-                    "medical_condition": p.medical_condition,
-                    "blood_group_id": p.blood_group_id,
-                    "medical_category_id": p.medical_category_id,
-                    "hospital_name": p.hospital_name,
-                    "doctor_name": p.doctor_name,
-                    "amount_requested": float(p.amount_requested) if p.amount_requested else None,
-                    "support_type_ids": p.support_type_ids,
-                    "attachment_id": p.attachment_id,
-                    "prescription_id": p.prescription_id,
-                    "estimation_id": p.estimation_id,
-                })
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "request_title": r.request_title,
-                "verified": r.verified,
-                "reject_reason": r.reject_reason,
-                "patients": patient_data,
-            })
-        return response
-
-    # ─── Helper: fetch education ─────────────────────────────────────────────
-    async def fetch_education():
-        query = select(EducationRequest)
-        if status_id is not None:
-            query = query.where(EducationRequest.status_id == status_id)
-        if category_id is not None:
-            query = query.where(EducationRequest.category_id == category_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
-
-        response = []
-        for r in requests:
-            stu_result = await db.execute(
-                select(EducationRequestStudents).where(
-                    EducationRequestStudents.education_request_id == r.id
-                )
-            )
-            students = stu_result.scalars().all()
-            student_data = [
-                {
-                    "id": s.id,
-                    "person_name": s.person_name,
-                    "age": s.age,
-                    "grade_level": s.grade_level,
-                    "education_support_type_id": s.education_support_type_id,
-                    "amount_requested": float(s.amount_requested) if s.amount_requested else None,
-                    "institution_name": s.institution_name,
-                    "college_id": s.college_id,
-                    "institution_address": s.institution_address,
-                    "contact_person_name": s.contact_person_name,
-                    "contact_person_phone": s.contact_person_phone,
-                    "verification_document_id": s.verification_document_id,
-                    "education_support_document_id": s.education_support_document_id,
-                }
-                for s in students
+    # NESTED shelter_requests
+    shelter_map = {}
+    shelter_requests = []
+    for row in shelter_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in shelter_map:
+            parent_fields = [
+                'id', 'name', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
             ]
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "category_id": r.category_id,
-                "request_title": r.request_title,
-                "request_description": r.request_description,
-                "status_id": r.status_id,
-                "urgency_id": r.urgency_id,
-                "verified": r.verified,
-                "reject_reason": r.reject_reason,
-                "created_at": r.created_at,
-                "updated_at": r.updated_at,
-                "students": student_data,
-            })
-        return response
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['beneficiaries'] = []
+            shelter_requests.append(parent)
+            shelter_map[req_id] = parent
+        child_fields = [
+            'person_name', 'total_members', 'current_address', 'duration_of_problem', 'number_of_days',
+            'special_need', 'staying_type', 'requirement_type', 'duration_option'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            shelter_map[req_id]['beneficiaries'].append(child)
 
-    # ─── Helper: fetch clothes ───────────────────────────────────────────────
-    async def fetch_clothes():
-        query = select(ClothesRequest)
-        if status_id is not None:
-            query = query.where(ClothesRequest.status_id == status_id)
-        if category_id is not None:
-            query = query.where(ClothesRequest.category_id == category_id)
-        result = await db.execute(query)
-        requests = result.scalars().all()
+    # NESTED sports_requests
+    sports_map = {}
+    sports_requests = []
+    for row in sports_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in sports_map:
+            parent_fields = [
+                'id', 'user_name', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['participants'] = []
+            sports_requests.append(parent)
+            sports_map[req_id] = parent
+        child_fields = [
+            'person_name', 'age_group', 'gender', 'playing_level', 'achievement', 'amount_requested', 'event_date', 'institution_name', 'phone', 'verification_document', 'achievement_document', 'sports_category_name', 'sports_support_name'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            sports_map[req_id]['participants'].append(child)
 
-        response = []
-        for r in requests:
-            ben_result = await db.execute(
-                select(ClothesRequestBeneficiaries).where(
-                    ClothesRequestBeneficiaries.clothes_request_id == r.id
-                )
-            )
-            beneficiaries = ben_result.scalars().all()
-            ben_list = []
-            for ben in beneficiaries:
-                size_result = await db.execute(
-                    select(ClothesRequestBeneficiariesSizes).where(
-                        ClothesRequestBeneficiariesSizes.beneficiary_id == ben.id
-                    )
-                )
-                sizes = size_result.scalars().all()
-                ben_list.append({
-                    "id": ben.id,
-                    "person_name": ben.person_name,
-                    "age_group": ben.age_group,
-                    "gender_preference": ben.gender_preference,
-                    "clothing_category_id": ben.clothing_category_id,
-                    "need_by_date": ben.need_by_date,
-                    "urgency_level_id": ben.urgency_level_id,
-                    "verification_document_id": ben.verification_document_id,
-                    "beneficiary_photo_id": ben.beneficiary_photo_id,
-                    "sizes": [
-                        {
-                            "id": s.id,
-                            "clothing_type": s.clothing_type,
-                            "size_id": s.size_id,
-                            "quantity": s.quantity,
-                        }
-                        for s in sizes
-                    ],
-                })
-            response.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "category_id": r.category_id,
-                "request_title": r.request_title,
-                "request_description": r.request_description,
-                "status_id": r.status_id,
-                "urgency_id": r.urgency_id,
-                "beneficiaries": ben_list,
-            })
-        return response
+    # NESTED medical_requests
+    medical_map = {}
+    medical_requests = []
+    for row in medical_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in medical_map:
+            parent_fields = [
+                'id', 'user_name', 'category_name', 'status_name', 'urgency_name',
+                'request_title', 'request_description', 'created_at', 'updated_at', 'verified', 'reject_reason'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['patients'] = []
+            medical_requests.append(parent)
+            medical_map[req_id] = parent
+        child_fields = [
+            'medical_request_id', 'patient_name', 'age', 'gender_name', 'medical_condition', 'blood_group_name', 'medical_category_name', 'hospital_name', 'hospital_address', 'doctor_name', 'financial_information', 'amount_paid', 'amount_requested', 'funds_needed_by', 'contact_information', 'emergency_contact_name', 'support_type_names', 'verification_document_filepath', 'prescription_document_filepath', 'estimation_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            medical_map[req_id]['patients'].append(child)
 
-    # ─── Helper: fetch food ──────────────────────────────────────────────────
-    async def fetch_food():
-        params = {"status_id": status_id, "category_id": category_id}
-        if food_category_id == 1:
-            cooked_rows = (await db.execute(cooked_food_q, params)).fetchall()
-            return {"cooked_food": [dict(r._mapping) for r in cooked_rows]}
-        elif food_category_id == 2:
-            daily_rows = (await db.execute(daily_meal_q, params)).fetchall()
-            return {"daily_meal": [dict(r._mapping) for r in daily_rows]}
-        elif food_category_id == 3:
-            grocery_rows = (await db.execute(grocery_q, params)).fetchall()
-            return {"grocery": [dict(r._mapping) for r in grocery_rows]}
-        else:
-            cooked_rows = (await db.execute(cooked_food_q, params)).fetchall()
-            daily_rows = (await db.execute(daily_meal_q, params)).fetchall()
-            grocery_rows = (await db.execute(grocery_q, params)).fetchall()
-            return {
-                "cooked_food": [dict(r._mapping) for r in cooked_rows],
-                "daily_meal": [dict(r._mapping) for r in daily_rows],
-                "grocery": [dict(r._mapping) for r in grocery_rows],
-            }
+    # NESTED education_requests
+    education_map = {}
+    education_requests = []
+    for row in education_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in education_map:
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['students'] = []
+            education_requests.append(parent)
+            education_map[req_id] = parent
+        child_fields = [
+            'person_name', 'age', 'grade_level', 'education_support_type', 'amount_requested', 'institution_name', 'institution_address', 'contact_person_name', 'contact_person_phone', 'verification_document_filepath', 'achievement_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            education_map[req_id]['students'].append(child)
 
-    # ─── Route: single category requested ───────────────────────────────────
-    if category_id in shelter_categories:
-        return await fetch_shelter()
+    # NESTED clothes_requests
+    clothes_map = {}
+    clothes_requests = []
+    for row in clothes_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in clothes_map:
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['items'] = []
+            clothes_requests.append(parent)
+            clothes_map[req_id] = parent
+        child_fields = [
+            'person_name', 'age_group', 'gender', 'clothing_category', 'beneficiary_urgency', 'need_by_date', 'verification_document_filepath', 'achievement_document_filepath'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            clothes_map[req_id]['items'].append(child)
 
-    elif category_id in sports_categories:
-        return await fetch_sports()
+    # NESTED grocery_essentials_requests
+    grocery_map = {}
+    grocery_requests = []
+    for row in grocery_results:
+        row_dict = dict(row._mapping)
+        req_id = row_dict.get('id')
+        if req_id not in grocery_map:
+            parent_fields = [
+                'id', 'user_id', 'category', 'status', 'urgency',
+                'request_title', 'request_description', 'address', 'landmark', 'delivery_required', 'created_at', 'updated_at'
+            ]
+            parent = {k: row_dict[k] for k in parent_fields if k in row_dict}
+            parent['items'] = []
+            grocery_requests.append(parent)
+            grocery_map[req_id] = parent
+        child_fields = [
+            'frequency', 'item_name', 'custom_item_name', 'quantity', 'unit', 'priority'
+        ]
+        child = {k: row_dict[k] for k in child_fields if k in row_dict}
+        if any(child.values()):
+            grocery_map[req_id]['items'].append(child)
 
-    elif category_id in medical_categories:
-        return await fetch_medical()
+    # Flat food cooked/daily (no nesting needed)
+    food_requests_cooked_food = [dict(row._mapping) for row in cooked_results]
+    food_daily_meal_requests = [dict(row._mapping) for row in daily_results]
 
-    elif category_id in education_categories:
-        return await fetch_education()
+    return {
+        "shelter_requests": shelter_requests,
+        "sports_requests": sports_requests,
+        "medical_requests": medical_requests,
+        "education_requests": education_requests,
+        "clothes_requests": clothes_requests,
+        "food_requests_cooked_food": food_requests_cooked_food,
+        "food_daily_meal_requests": food_daily_meal_requests,
+        "grocery_essentials_requests": grocery_requests,
+    }
 
-    elif category_id in clothes_categories:
-        return await fetch_clothes()
-
-    elif category_id in food_categories:
-        return {"food": await fetch_food()}
-
-    # ─── Route: no category_id → return ALL ─────────────────────────────────
-    elif fetch_all:
-        return {
-            "shelter":   await fetch_shelter(),
-            "sports":    await fetch_sports(),
-            "medical":   await fetch_medical(),
-            "education": await fetch_education(),
-            "clothes":   await fetch_clothes(),
-            "food":      await fetch_food(),
-        }
-
-    return []
+   
 
 
 @router.post("/admin-approve-reject")

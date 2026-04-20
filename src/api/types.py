@@ -435,7 +435,7 @@ async def get_all_user_data(
         LEFT JOIN request_categories rc ON mr.category_id = rc.id
         LEFT JOIN request_status_master rsm ON mr.status_id = rsm.id
         LEFT JOIN urgency_levels ul ON mr.urgency_id = ul.id
-        LEFT JOIN sports_support_type sst ON JSON_CONTAINS(p.support_type_ids, CAST(sst.id AS JSON))
+        LEFT JOIN support_types sst ON JSON_CONTAINS(p.support_type_ids, CAST(sst.id AS JSON))
         LEFT JOIN attachments at1 ON p.attachment_id = at1.id
         LEFT JOIN attachments at2 ON p.prescription_id = at2.id
         LEFT JOIN attachments at3 ON p.estimation_id = at3.id
