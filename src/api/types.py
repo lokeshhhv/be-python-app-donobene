@@ -298,25 +298,49 @@ async def get_my_request_counts(
 async def get_all_user_data(
     user_id: Optional[int] = None,
     status_id: Optional[int] = None,
+    category_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    # Helper to build WHERE clause and params
-    def build_where_clause(user_id, status_id, user_col="user_id", status_col="status_id"):
+
+    def build_where_clause_multi(
+    user_id, status_id, category_id,
+    user_col, status_col,
+    category_col=None,
+    sub_category_col=None
+    ):
         where = []
         params = {}
+
         if user_id is not None:
             where.append(f"{user_col} = :user_id")
             params["user_id"] = user_id
+
         if status_id is not None:
             where.append(f"{status_col} = :status_id")
             params["status_id"] = status_id
-        if where:
-            return "WHERE " + " AND ".join(where), params
-        else:
-            return "", params
+
+        if category_id is not None:
+
+            # 👉 FOOD CATEGORY
+            if sub_category_col:
+                if category_id == 1:
+                    where.append(f"{sub_category_col} IN (1,2,3)")
+                else:
+                    # ❗ Block food if category != 1
+                    where.append("1=0")
+
+            # 👉 OTHER CATEGORIES
+            elif category_col:
+                where.append(f"{category_col} = :category_id")
+                params["category_id"] = category_id
+
+        return ("WHERE " + " AND ".join(where)) if where else "", params
 
     # SHELTER
-    shelter_where, shelter_params = build_where_clause(user_id, status_id, user_col="sr.user_id", status_col="sr.status_id")
+    shelter_where, shelter_params = build_where_clause_multi(
+    user_id, status_id, category_id,
+    "sr.user_id", "sr.status_id",
+    category_col="sr.category_id")
     shelter_q = await db.execute(text(f"""
     SELECT 
         sr.id,
@@ -356,7 +380,7 @@ async def get_all_user_data(
     shelter = shelter_q.fetchall()
 
     # SPORTS
-    sports_where, sports_params = build_where_clause(user_id, status_id, user_col="sr.user_id", status_col="sr.status_id")
+    sports_where, sports_params = build_where_clause_multi(user_id, status_id, category_id, "sr.user_id", "sr.status_id", category_col="sr.category_id")
     sports_q = await db.execute(text(f"""
         SELECT 
             sr.id,
@@ -398,7 +422,7 @@ async def get_all_user_data(
     sports = sports_q.fetchall()
 
     # MEDICAL
-    medical_where, medical_params = build_where_clause(user_id, status_id, user_col="mr.user_id", status_col="mr.status_id")
+    medical_where, medical_params = build_where_clause_multi(user_id, status_id, category_id, "mr.user_id", "mr.status_id", category_col="mr.category_id")
     medical_q = await db.execute(text(f"""
        SELECT 
             mr.id,
@@ -447,7 +471,7 @@ async def get_all_user_data(
     medical = medical_q.fetchall()
 
     # EDUCATION
-    education_where, education_params = build_where_clause(user_id, status_id, user_col="er.user_id", status_col="er.status_id")
+    education_where, education_params = build_where_clause_multi(user_id, status_id, category_id, "er.user_id", "er.status_id", category_col="er.category_id")
     edu_q = await db.execute(text(f"""
     SELECT 
         er.id,
@@ -483,7 +507,7 @@ async def get_all_user_data(
     education = edu_q.fetchall()
 
     # CLOTHES
-    clothes_where, clothes_params = build_where_clause(user_id, status_id, user_col="cr.user_id", status_col="cr.status_id")
+    clothes_where, clothes_params = build_where_clause_multi(user_id, status_id, category_id, "cr.user_id", "cr.status_id", category_col="cr.category_id")
     clothes_q = await db.execute(text(f"""
         SELECT 
             cr.id,
@@ -519,7 +543,10 @@ async def get_all_user_data(
     clothes = clothes_q.fetchall()
 
     # FOOD - COOKED FOOD
-    cooked_where, cooked_params = build_where_clause(user_id, status_id, user_col="cf.user_id", status_col="cf.status_id")
+    cooked_where, cooked_params = build_where_clause_multi(
+    user_id, status_id, category_id,
+    "cf.user_id", "cf.status_id",
+    sub_category_col="cf.food_request_category_id")
     cooked_q = await db.execute(text(f"""
      SELECT 
         cf.id,
@@ -552,7 +579,11 @@ async def get_all_user_data(
     """), cooked_params)
     cooked = cooked_q.fetchall()
 
-    daily_where, daily_params = build_where_clause(user_id, status_id, user_col="dm.user_id", status_col="dm.status_id")
+    daily_where, daily_params = build_where_clause_multi(
+    user_id, status_id, category_id,
+    "dm.user_id", "dm.status_id",
+    sub_category_col="dm.food_request_category_id"
+    )
     daily_q = await db.execute(text(f"""
     SELECT 
         dm.id,
@@ -588,8 +619,11 @@ async def get_all_user_data(
     {daily_where};
         """), daily_params)
     daily = daily_q.fetchall()
-
-    grocery_where, grocery_params = build_where_clause(user_id, status_id, user_col="gr.user_id", status_col="gr.status_id")
+    grocery_where, grocery_params = build_where_clause_multi(
+        user_id, status_id, category_id,
+        "gr.user_id", "gr.status_id",
+        sub_category_col="gr.food_request_category_id"
+    )
     grocery_q = await db.execute(text(f"""
      SELECT 
         gr.id,
@@ -779,460 +813,97 @@ async def get_all_user_data(
         "grocery_essentials_requests": grocery_requests,
     }
 
-@router.get("/people-in-need", response_model=dict)
-async def get_filtered_requests(
-    status_id: Optional[int] = None,
-    category_id: Optional[int] = None,
-    sub_category_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db),
-):
-
-    def build_where_clause(status_id, category_id, status_col, category_col):
-        where, params = [], {}
-
-        if status_id is not None:
-            where.append(f"{status_col} = :status_id")
-            params["status_id"] = status_id
-
-        if category_id is not None:
-            where.append(f"{category_col} = :category_id")
-            params["category_id"] = category_id
-
-        return ("WHERE " + " AND ".join(where)) if where else "", params
-
-    # ================= SHELTER =================
-    shelter_where, shelter_params = build_where_clause(status_id, category_id, "sr.status_id", "sr.category_id")
-
-    shelter = (await db.execute(text(f"""
-    SELECT 
-        sr.id, sr.user_id, sr.category_id,
-        rc.category_type AS category,
-        sr.status_id, rsm.name AS status,
-        ul.name AS urgency,
-        sr.request_title, sr.request_description,
-        sb.person_name, sb.total_members, sb.current_address,
-        sb.duration_of_problem, sb.number_of_days,
-        ssn.name AS special_need, sst.name AS staying_type,
-        srt.name AS requirement_type, sdo.name AS duration_option,
-        sr.created_at, sr.updated_at,
-        at1.file_path AS damage_document_filepath,
-        at2.file_path AS verification_document_filepath
-    FROM shelter_requests sr
-    LEFT JOIN shelter_beneficiaries sb ON sr.id = sb.shelter_request_id
-    LEFT JOIN request_categories rc ON sr.category_id = rc.id
-    LEFT JOIN request_status_master rsm ON sr.status_id = rsm.id
-    LEFT JOIN urgency_levels ul ON sr.urgency_id = ul.id
-    LEFT JOIN shelter_special_needs ssn ON sb.special_need_id = ssn.id
-    LEFT JOIN shelter_staying_types sst ON sb.staying_type_id = sst.id
-    LEFT JOIN shelter_requirement_types srt ON sb.requirement_type_id = srt.id
-    LEFT JOIN shelter_duration_options sdo ON sb.duration_option_id = sdo.id
-    LEFT JOIN attachments at1 ON sb.damage_document_id = at1.id
-    LEFT JOIN attachments at2 ON sb.verification_document_id = at2.id
-    {shelter_where}
-    """), shelter_params)).fetchall()
-
-    # ================= SPORTS =================
-    sports_where, sports_params = build_where_clause(status_id, category_id, "sr.status_id", "sr.category_id")
-
-    sports = (await db.execute(text(f"""
-    SELECT 
-        sr.id, sr.user_id, sr.category_id,
-        rc.category_type AS category,
-        sr.status_id, rsm.name AS status,
-        ul.name AS urgency,
-        sr.request_title, sr.request_description,
-        srb.person_name, srb.age_group,
-        g.gender_name AS gender, pl.name AS playing_level,
-        srb.achievement, srb.amount_requested,
-        srb.event_date, srb.institution_name, srb.phone,
-        at1.file_path AS verification_document_filepath,
-        at2.file_path AS achievement_document_filepath,
-        GROUP_CONCAT(DISTINCT sc.name) AS sports_names,
-        GROUP_CONCAT(DISTINCT sst.name) AS support_type_names,
-        sr.created_at, sr.updated_at
-    FROM sports_requests sr
-    LEFT JOIN sports_request_beneficiaries srb ON sr.id = srb.sports_request_id
-    LEFT JOIN request_categories rc ON sr.category_id = rc.id
-    LEFT JOIN request_status_master rsm ON sr.status_id = rsm.id
-    LEFT JOIN urgency_levels ul ON sr.urgency_id = ul.id
-    LEFT JOIN gender g ON srb.gender_id = g.id
-    LEFT JOIN playing_levels pl ON srb.playing_level_id = pl.id
-    LEFT JOIN sports_categories sc ON JSON_CONTAINS(srb.sports_category_ids, CAST(sc.id AS JSON))
-    LEFT JOIN sports_support_type sst ON JSON_CONTAINS(srb.support_type_ids, CAST(sst.id AS JSON))
-    LEFT JOIN attachments at1 ON srb.verification_document_id = at1.id
-    LEFT JOIN attachments at2 ON srb.achievement_document_id = at2.id
-    {sports_where}
-    GROUP BY sr.id, srb.id
-    """), sports_params)).fetchall()
-
-    # ================= MEDICAL =================
-    medical_where, medical_params = build_where_clause(status_id, category_id, "mr.status_id", "mr.category_id")
-
-    medical = (await db.execute(text(f"""
-    SELECT 
-        mr.id, mr.user_id, mr.category_id,
-        rc.category_type AS category,
-        mr.status_id, rsm.name AS status,
-        ul.name AS urgency,
-        mr.request_title, mr.request_description,
-        p.patient_name, p.age,
-        g.gender_name AS gender,
-        p.medical_condition, p.hospital_name, p.hospital_address,
-        p.doctor_name, p.financial_information,
-        p.funds_needed_by, p.amount_paid, p.amount_requested,
-        p.contact_information, p.emergency_contact_name,
-        bg.name AS blood_group, mc.name AS medical_category,
-        GROUP_CONCAT(DISTINCT sst.name) AS support_type_names,
-        at1.file_path AS verification_document_filepath,
-        at2.file_path AS prescription_document_filepath,
-        at3.file_path AS estimation_document_filepath,
-        mr.created_at, mr.updated_at
-    FROM medical_requests mr
-    LEFT JOIN patients p ON mr.id = p.medical_request_id
-    LEFT JOIN blood_groups bg ON p.blood_group_id = bg.id
-    LEFT JOIN medical_categories mc ON p.medical_category_id = mc.id
-    LEFT JOIN gender g ON p.gender_id = g.id
-    LEFT JOIN request_categories rc ON mr.category_id = rc.id
-    LEFT JOIN request_status_master rsm ON mr.status_id = rsm.id
-    LEFT JOIN urgency_levels ul ON mr.urgency_id = ul.id
-    LEFT JOIN support_types sst ON JSON_CONTAINS(p.support_type_ids, CAST(sst.id AS JSON))
-    LEFT JOIN attachments at1 ON p.attachment_id = at1.id
-    LEFT JOIN attachments at2 ON p.prescription_id = at2.id
-    LEFT JOIN attachments at3 ON p.estimation_id = at3.id
-    {medical_where}
-    GROUP BY mr.id, p.id
-    """), medical_params)).fetchall()
-
-    # ================= EDUCATION =================
-    education_where, education_params = build_where_clause(status_id, category_id, "er.status_id", "er.category_id")
-
-    education = (await db.execute(text(f"""
-    SELECT 
-        er.id, er.user_id, er.category_id,
-        rc.category_type AS category,
-        er.status_id, rsm.name AS status,
-        ul.name AS urgency,
-        er.request_title, er.request_description,
-        es.person_name, es.age, es.grade_level,
-        est.name AS education_support_type,
-        es.amount_requested, es.institution_name,
-        es.institution_address,
-        es.contact_person_name, es.contact_person_phone,
-        at1.file_path AS verification_document_filepath,
-        at2.file_path AS achievement_document_filepath,
-        er.created_at, er.updated_at
-    FROM education_requests er
-    LEFT JOIN education_request_students es ON er.id = es.education_request_id
-    LEFT JOIN request_categories rc ON er.category_id = rc.id
-    LEFT JOIN request_status_master rsm ON er.status_id = rsm.id
-    LEFT JOIN urgency_levels ul ON er.urgency_id = ul.id
-    LEFT JOIN education_support_types est ON es.education_support_type_id = est.id
-    LEFT JOIN attachments at1 ON es.verification_document_id = at1.id
-    LEFT JOIN attachments at2 ON es.education_support_document_id = at2.id
-    {education_where}
-    """), education_params)).fetchall()
-
-    # ================= CLOTHES =================
-    clothes_where, clothes_params = build_where_clause(status_id, category_id, "cr.status_id", "cr.category_id")
-
-    clothes = (await db.execute(text(f"""
-    SELECT 
-        cr.id, cr.user_id, cr.category_id,
-        rc.category_type AS category,
-        cr.status_id, rsm.name AS status,
-        ul.name AS urgency,
-        cr.request_title, cr.request_description,
-        cb.person_name,
-        cag.name AS age_group,
-        g.gender_name AS gender,
-        cc.name AS clothing_category,
-        ul2.name AS beneficiary_urgency,
-        cb.need_by_date,
-        cr.created_at, cr.updated_at,
-        at1.file_path AS verification_document_filepath,
-        at2.file_path AS achievement_document_filepath
-    FROM clothes_requests cr
-    LEFT JOIN clothes_beneficiaries cb ON cr.id = cb.clothes_request_id
-    LEFT JOIN request_categories rc ON cr.category_id = rc.id
-    LEFT JOIN request_status_master rsm ON cr.status_id = rsm.id
-    LEFT JOIN urgency_levels ul ON cr.urgency_id = ul.id
-    LEFT JOIN clothes_age_groups cag ON cb.age_group = cag.id
-    LEFT JOIN gender g ON cb.gender_preference = g.id
-    LEFT JOIN clothing_categories cc ON cb.clothing_category_id = cc.id
-    LEFT JOIN urgency_levels ul2 ON cb.urgency_level_id = ul2.id
-    LEFT JOIN attachments at1 ON cb.verification_document_id = at1.id
-    LEFT JOIN attachments at2 ON cb.beneficiary_photo_id = at2.id
-    {clothes_where}
-    """), clothes_params)).fetchall()
-
-    # ================= FOOD =================
-    cooked, daily, grocery = [], [], []
-
-    if category_id == 1:
-        if sub_category_id == 1:
-            cooked = (await db.execute(text
-            (""" SELECT 
-                cf.id,
-                cf.user_id,
-
-                'Food - Cooked' AS category,
-                rsm.name AS status,
-                ul.name AS urgency,
-
-                cf.request_title,
-                cf.request_description,
-
-                ft.name AS food_type,
-                mt.name AS meal_type,
-
-                cf.number_of_people,
-                cf.plates_required,
-
-                cf.required_date,
-                ts.name AS time_slot,
-
-                ful.name AS food_urgency,
-
-                cf.address,
-                cf.landmark,
-                cf.delivery_required,
-
-                cf.created_at,
-                cf.updated_at
-
-            FROM food_requests_cooked_food cf
-
-            LEFT JOIN food_types ft ON cf.food_type_id = ft.id
-            LEFT JOIN food_meal_types mt ON cf.meal_type_id = mt.id
-            LEFT JOIN food_time_slots ts ON cf.time_slot_id = ts.id
-            LEFT JOIN food_urgency_levels ful ON cf.urgency_level_id = ful.id
-
-            LEFT JOIN request_status_master rsm ON cf.status_id = rsm.id
-            LEFT JOIN urgency_levels ul ON cf.urgency_id = ul.id"""),
-            {"status_id": status_id})).fetchall()
-        elif sub_category_id == 2:
-            daily = (await db.execute(text
-                (""" SELECT 
-                dm.id,
-                dm.user_id,
-
-                'Food - Daily Meal' AS category,
-                rsm.name AS status,
-                ul.name AS urgency,
-
-                dm.request_title,
-                dm.request_description,
-
-                dm.number_of_people,
-
-                ag.name AS age_group,
-                msn.name AS medical_special_need,
-
-                mt.name AS meal_type,
-                mf.name AS frequency,
-                d.name AS duration,
-
-                dm.custom_days,
-                dm.custom_date_range,
-
-                ts.name AS time_slot,
-
-                dm.address,
-                dm.landmark,
-                dm.delivery_required,
-
-                dm.created_at,
-                dm.updated_at
-
-            FROM food_daily_meal_requests dm
-
-            LEFT JOIN food_age_groups ag ON dm.age_group_id = ag.id
-            LEFT JOIN food_special_needs msn ON dm.special_need_id = msn.id
-
-            LEFT JOIN food_meal_types mt ON dm.meal_type_id = mt.id
-            LEFT JOIN food_meal_frequencies mf ON dm.frequency_id = mf.id
-            LEFT JOIN food_durations d ON dm.duration_id = d.id
-
-            LEFT JOIN food_time_slots ts ON dm.time_slot_id = ts.id
-
-            LEFT JOIN request_status_master rsm ON dm.status_id = rsm.id
-            LEFT JOIN urgency_levels ul ON dm.urgency_id = ul.id  """)
-        , {"status_id": status_id})).fetchall()
-        elif sub_category_id == 3:
-            grocery = (await db.execute(text("""
+@router.put("/people-in-need/update-and-get")
+async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
+    try:
+        # ---------------- UPDATE QUERY ----------------
+        update_query = text("""
+        UPDATE people_in_need pin
+        JOIN (
             SELECT 
-                    gr.id,
-                    gr.user_id,
+                rc.id AS category_id,
+                COALESCE(SUM(data.amount_requested), 0) AS total_amount_requested
+            FROM request_categories rc
+            LEFT JOIN (
+                SELECT 6 AS category_id, sb.amount_requested
+                FROM sports_request_beneficiaries sb
+                JOIN sports_requests sr ON sb.sports_request_id = sr.id
+                WHERE sr.status_id = 2
 
-                    'Food - Grocery' AS category,
-                    rsm.name AS status,
-                    ul.name AS urgency,
+                UNION ALL
+                SELECT 5, sh.amount_requested
+                FROM shelter_beneficiaries sh
+                JOIN shelter_requests sr ON sh.shelter_request_id = sr.id
+                WHERE sr.status_id = 2
 
-                    gr.request_title,
-                    gr.request_description,
+                UNION ALL
+                SELECT 3, es.amount_requested
+                FROM education_request_students es
+                JOIN education_requests er ON es.education_request_id = er.id
+                WHERE er.status_id = 2
 
-                    gf.name AS frequency,
+                UNION ALL
+                SELECT 4, p.amount_requested
+                FROM patients p
+                JOIN medical_requests mr ON p.medical_request_id = mr.id
+                WHERE mr.status_id = 2
 
-                    gr.address,
-                    gr.landmark,
-                    gr.delivery_required,
+                UNION ALL
+                SELECT 2, cr.amount_requested
+                FROM clothes_requests cr
+                WHERE cr.status_id = 2
 
-                    gim.name AS item_name,
-                    gi.custom_item_name,
-                    gi.quantity,
-                    gu.name AS unit,
-                    gp.name AS priority,
+                UNION ALL
+                SELECT 1, ge.amount_requested
+                FROM grocery_essentials_requests ge
+                WHERE ge.status_id = 2
 
-                    gr.created_at,
-                    gr.updated_at
+                UNION ALL
+                SELECT 1, fd.amount_requested
+                FROM food_daily_meal_requests fd
+                WHERE fd.status_id = 2
+            ) data
+            ON rc.id = data.category_id
+            GROUP BY rc.id
+        ) agg
+        ON pin.category_id = agg.category_id
+        SET pin.amount_requested = agg.total_amount_requested
+        WHERE pin.id > 0;
+        """)
 
-                FROM grocery_essentials_requests gr
+        await db.execute(update_query)
 
-                LEFT JOIN grocery_essentials_items gi 
-                    ON gr.id = gi.grocery_essentials_request_id
+        # ---------------- SELECT QUERY ----------------
+        select_query = text("""
+        SELECT 
+            pin.id,
+            pin.category_id,
+            rc.category_type,
+            pin.amount_requested,
+            pin.description,
+            pin.color,
+            pin.created_at,
+            pin.updated_at
+        FROM people_in_need pin
+        JOIN request_categories rc 
+            ON pin.category_id = rc.id
+        ORDER BY pin.category_id;
+        """)
 
-                LEFT JOIN grocery_item_master gim 
-                    ON gi.item_master_id = gim.id
+        result = await db.execute(select_query)
+        rows = result.fetchall()
 
-                LEFT JOIN grocery_unit_options gu 
-                    ON gi.unit_id = gu.id
+        await db.commit()
 
-                LEFT JOIN grocery_priority_levels gp 
-                    ON gi.priority_id = gp.id
+        # Convert to JSON
+        data = [dict(row._mapping) for row in rows]
 
-                LEFT JOIN food_meal_frequencies gf 
-                    ON gr.frequency_id = gf.id
+        return {
+            "status": "success",
+            "count": len(data),
+            "data": data
+        }
 
-                LEFT JOIN request_status_master rsm 
-                    ON gr.status_id = rsm.id
-
-                LEFT JOIN urgency_levels ul 
-                    ON gr.urgency_id = ul.id
-            """), {"status_id": status_id})).fetchall()
-
-    # ================= NEST HELPERS =================
-    def nest(rows, parent_keys, child_keys, child_name):
-        m, result = {}, []
-        for row in rows:
-            r = dict(row._mapping)
-            pid = r["id"]
-
-            if pid not in m:
-                parent = {k: r[k] for k in parent_keys}
-                parent[child_name] = []
-                m[pid] = parent
-                result.append(parent)
-
-            child = {k: r[k] for k in child_keys}
-            if any(child.values()):
-                m[pid][child_name].append(child)
-
-        return result
-
-    # ================= CARDS OBJECT =================
-    def get_cumulative_amount(requests, amount_field, description_field=None):
-        total = 0
-        description = None
-        for row in requests:
-            r = dict(row._mapping)
-            val = r.get(amount_field)
-            if val is not None:
-                try:
-                    total += float(val)
-                except Exception:
-                    pass
-            if description is None and description_field and r.get(description_field):
-                description = r.get(description_field)
-        return total, description
-
-    cards = []
-    # Shelter
-    cards.append({
-        "category_name": "shelter",
-        "description": shelter[0]._mapping["request_description"] if shelter else None,
-        "amount_requested": get_cumulative_amount(shelter, "amount_requested")[0] if shelter and "amount_requested" in shelter[0]._mapping else None
-    })
-    # Sports
-    cards.append({
-        "category_name": "sports",
-        "description": sports[0]._mapping["request_description"] if sports else None,
-        "amount_requested": get_cumulative_amount(sports, "amount_requested")[0] if sports and "amount_requested" in sports[0]._mapping else None
-    })
-    # Medical
-    cards.append({
-        "category_name": "medical",
-        "description": medical[0]._mapping["request_description"] if medical else None,
-        "amount_requested": get_cumulative_amount(medical, "amount_requested")[0] if medical and "amount_requested" in medical[0]._mapping else None
-    })
-    # Education
-    cards.append({
-        "category_name": "education",
-        "description": education[0]._mapping["request_description"] if education else None,
-        "amount_requested": get_cumulative_amount(education, "amount_requested")[0] if education and "amount_requested" in education[0]._mapping else None
-    })
-    # Clothes
-    cards.append({
-        "category_name": "clothes",
-        "description": clothes[0]._mapping["request_description"] if clothes else None,
-        "amount_requested": get_cumulative_amount(clothes, "amount_requested")[0] if clothes and "amount_requested" in clothes[0]._mapping else None
-    })
-    # Food - Cooked
-    cards.append({
-        "category_name": "food_requests_cooked_food",
-        "description": cooked[0]._mapping["request_description"] if cooked else None,
-        "amount_requested": get_cumulative_amount(cooked, "amount_requested")[0] if cooked and "amount_requested" in cooked[0]._mapping else None
-    })
-    # Food - Daily Meal
-    cards.append({
-        "category_name": "food_daily_meal_requests",
-        "description": daily[0]._mapping["request_description"] if daily else None,
-        "amount_requested": get_cumulative_amount(daily, "amount_requested")[0] if daily and "amount_requested" in daily[0]._mapping else None
-    })
-    # Grocery
-    cards.append({
-        "category_name": "grocery_essentials_requests",
-        "description": grocery[0]._mapping["request_description"] if grocery else None,
-        "amount_requested": get_cumulative_amount(grocery, "amount_requested")[0] if grocery and "amount_requested" in grocery[0]._mapping else None
-    })
-
-    return {
-        "shelter_requests": nest(
-            shelter,
-            ["id","user_id","category_id","category","status_id","status","urgency","request_title","request_description","created_at","updated_at"],
-            ["person_name","total_members","current_address","duration_of_problem","number_of_days","special_need","staying_type","requirement_type","duration_option","damage_document_filepath","verification_document_filepath"],
-            "beneficiaries"
-        ),
-        "sports_requests": nest(
-            sports,
-            ["id","user_id","category_id","category","status_id","status","urgency","request_title","request_description","created_at","updated_at"],
-            ["person_name","age_group","gender","playing_level","achievement","amount_requested","event_date","institution_name","phone","sports_names","support_type_names","verification_document_filepath","achievement_document_filepath"],
-            "participants"
-        ),
-        "medical_requests": nest(
-            medical,
-            ["id","user_id","category_id","category","status_id","status","urgency","request_title","request_description","created_at","updated_at"],
-            ["patient_name","age","gender","medical_condition","hospital_name","hospital_address","doctor_name","financial_information","funds_needed_by","amount_paid","amount_requested","contact_information","emergency_contact_name","blood_group","medical_category","support_type_names","verification_document_filepath","prescription_document_filepath","estimation_document_filepath"],
-            "patients"
-        ),
-        "education_requests": nest(
-            education,
-            ["id","user_id","category_id","category","status_id","status","urgency","request_title","request_description","created_at","updated_at"],
-            ["person_name","age","grade_level","education_support_type","amount_requested","institution_name","institution_address","contact_person_name","contact_person_phone","verification_document_filepath","achievement_document_filepath"],
-            "students"
-        ),
-        "clothes_requests": nest(
-            clothes,
-            ["id","user_id","category_id","category","status_id","status","urgency","request_title","request_description","created_at","updated_at"],
-            ["person_name","age_group","gender","clothing_category","beneficiary_urgency","need_by_date","verification_document_filepath","achievement_document_filepath"],
-            "items"
-        ),
-        "grocery_essentials_requests": nest(
-            grocery,
-            ["id","user_id","category","status","urgency","request_title","request_description","address","landmark","delivery_required","created_at","updated_at"],
-            ["frequency","item_name","custom_item_name","quantity","unit","priority"],
-            "items"
-        ),
-        "food_requests_cooked_food": [dict(r._mapping) for r in cooked],
-        "food_daily_meal_requests": [dict(r._mapping) for r in daily],
-        "cards": cards
-    }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
