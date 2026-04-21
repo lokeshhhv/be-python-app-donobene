@@ -83,7 +83,9 @@ async def create_sports_request(
             user_id=payload.user_id,
             category_id=payload.category_id,
             request_title=payload.request_title,
-            request_description=payload.request_description
+            request_description=payload.request_description,
+            urgency_id=payload.urgency_id,
+            status_id=payload.status_id
         )
 
         db.add(new_request)
@@ -148,8 +150,8 @@ async def create_sports_request(
                 event_date=ben.event_date,
                 institution_name=ben.institution_name,
                 phone=ben.phone,
-                urgency_id=ben.urgency_id,
-                status_id=ben.status_id,
+                # urgency_id=ben.urgency_id,
+                # status_id=ben.status_id,
                 verification_document_id=verification_id,
                 achievement_document_id=achievement_id,
                 sports_category_ids=ben.sports_category_ids,

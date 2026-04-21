@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from sqlalchemy import DECIMAL, Column, Integer, String, ForeignKey, DateTime, func
 from src.db.base import Base
 
 class ClothesRequest(Base):
@@ -25,6 +25,7 @@ class ClothesRequestBeneficiaries(Base):
     urgency_level_id = Column(Integer, ForeignKey("urgency_levels.id"))
     verification_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
     beneficiary_photo_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
+    amount_requested = Column(DECIMAL(10, 2))
 
 class ClothesRequestBeneficiariesSizes(Base):
     __tablename__ = "beneficiary_clothing_sizes"

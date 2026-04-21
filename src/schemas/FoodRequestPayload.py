@@ -196,6 +196,7 @@ class FoodDailyMealRequestPayload(BaseModel):
     landmark: Optional[str] = None
 
     delivery_required: bool
+    amount_requested: Optional[float] = None
 
 
 class GroceryItemPayload(BaseModel):
@@ -224,5 +225,5 @@ class GroceryRequestPayload(BaseModel):
     landmark: Optional[str] = None
 
     delivery_required: bool
-
+    amount_requested: Optional[float] = None
     items: List[GroceryItemPayload] = Field(default_factory=list)

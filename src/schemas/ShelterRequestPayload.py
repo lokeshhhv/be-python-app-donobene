@@ -36,5 +36,5 @@ class ShelterRequestPayload(BaseModel):
 
     verified: Optional[bool] = False
     reject_reason: Optional[str] = None
-
+    amount_requested: Optional[float] = None
     beneficiaries: List[ShelterBeneficiaryPayload]

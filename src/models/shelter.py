@@ -52,7 +52,7 @@ class ShelterBeneficiary(Base):
 
     verification_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
     damage_document_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"))
-
+    amount_requested = Column(Integer)
 
 class ShelterRequirementTypes(Base):
     __tablename__ = "shelter_requirement_types"

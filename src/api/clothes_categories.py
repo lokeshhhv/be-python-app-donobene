@@ -57,7 +57,8 @@ async def create_full_clothes_request(
             request_title=payload.request_title,
             request_description=payload.request_description,
             status_id=payload.status_id,
-            urgency_id=payload.urgency_id
+            urgency_id=payload.urgency_id,
+            # amount_requested=payload.amount_requested,
         )
         db.add(new_request)
         await db.flush()  # get request ID
@@ -104,7 +105,8 @@ async def create_full_clothes_request(
                 need_by_date=ben.need_by_date,
                 urgency_level_id=ben.urgency_level_id,
                 verification_document_id=verification_document_id,
-                beneficiary_photo_id=beneficiary_photo_id
+                beneficiary_photo_id=beneficiary_photo_id,
+                amount_requested=ben.amount_requested
             )
             db.add(new_beneficiary)
             await db.flush()

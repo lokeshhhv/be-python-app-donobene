@@ -179,7 +179,8 @@ async def create_grocery_request(
             frequency_id=payload.frequency_id,
             address=payload.address,
             landmark=payload.landmark,
-            delivery_required=payload.delivery_required
+            delivery_required=payload.delivery_required,
+            amount_requested=payload.amount_requested
         )
         db.add(new_request)
         await db.flush()

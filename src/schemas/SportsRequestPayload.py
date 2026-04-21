@@ -28,14 +28,12 @@ class SportsBeneficiaryPayload(BaseModel):
     verification_document: Optional[AttachmentPayload]
     achievement_document: Optional[AttachmentPayload]
 
-    urgency_id: Optional[int]
-    status_id: Optional[int]
-
 
 class SportsRequestPayload(BaseModel):
     user_id: int
     category_id: int
     request_title: str
     request_description: Optional[str]
-
+    urgency_id: Optional[int]
+    status_id: Optional[int]
     beneficiaries: List[SportsBeneficiaryPayload]

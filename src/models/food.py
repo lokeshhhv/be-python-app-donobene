@@ -162,7 +162,7 @@ class FoodDailyMealRequest(Base):
     landmark = Column(String(255))
 
     delivery_required = Column(Boolean, default=False)
-
+    amount_requested = Column(DECIMAL(10, 2))
     created_at = Column(DateTime(), server_default=func.now())
     updated_at = Column(DateTime(), server_default=func.now(), onupdate=func.now())
 
@@ -187,6 +187,7 @@ class GroceryEssentialsRequest(Base):
     landmark = Column(String(255))
 
     delivery_required = Column(Boolean, default=False)
+    amount_requested = Column(DECIMAL(10, 2))
 
     created_at = Column(DateTime(), server_default=func.now())
     updated_at = Column(DateTime(), server_default=func.now(), onupdate=func.now())

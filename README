@@ -71,74 +71,64 @@ sports payload:
 {
   "user_id": 1,
   "category_id": 6,
-  "request_title": "Sports Support",
-  "request_description": "Need support",
-
+  "request_title": "Cricket Training Support",
+  "request_description": "Need support for coaching and equipment",
+  "urgency_id": 2,
+  "status_id": 1,
   "beneficiaries": [
     {
-      "person_name": "Ravi",
+      "person_name": "Arjun",
       "age_group": "18-25",
       "gender_id": 1,
       "playing_level_id": 2,
-
       "sports_category_ids": [1],
-      "support_type_ids": [1, 2],
-
-      "achievement": "District player",
-      "amount_requested": 5000,
-      "event_date": "2026-05-10",
-      "institution_name": "ABC College",
-      "phone": "9876543210",
-
+      "support_type_ids": [1, 3],
+      "achievement": "State level player",
+      "amount_requested": 8000,
+      "event_date": "2026-06-15",
+      "institution_name": "XYZ Sports Academy",
+      "phone": "9123456780",
       "verification_document": {
         "document_type_id": 1,
-        "file_path": "/uploads/v.pdf"
+        "file_path": "/uploads/verif1.pdf"
       },
-
       "achievement_document": {
         "document_type_id": 2,
-        "file_path": "/uploads/a.pdf"
-      },
-
-      "urgency_id": 1,
-      "status_id": 1
+        "file_path": "/uploads/ach1.pdf"
+      }
     }
   ]
 }
-
 ---------------
 shelter payload:
 ---------------
 {
-  "user_id": 1,
+  "user_id": 2,
   "category_id": 5,
-  "request_title": "Shelter Needed",
-  "request_description": "Flood affected family",
-
+  "request_title": "Temporary Shelter Required",
+  "request_description": "House damaged due to heavy rains",
   "status_id": 1,
   "urgency_id": 2,
-
   "beneficiaries": [
     {
-      "person_name": "Ravi",
-      "total_members": 4,
-      "special_need_id": 1,
-      "staying_type_id": 2,
-      "current_address": "Chennai",
-      "duration_of_problem": "2 weeks",
+      "person_name": "Arun",
+      "total_members": 5,
+      "special_need_id": 2,
+      "staying_type_id": 1,
+      "current_address": "Tambaram, Chennai",
+      "duration_of_problem": "3 weeks",
       "requirement_type_id": 1,
       "duration_option_id": 2,
-      "number_of_days": 10,
-
+      "number_of_days": 15,
       "verification_document": {
         "document_type_id": 1,
-        "file_path": "/uploads/verify.pdf"
+        "file_path": "/uploads/shelter/verif1.pdf"
       },
-
       "damage_document": {
         "document_type_id": 2,
-        "file_path": "/uploads/damage.jpg"
-      }
+        "file_path": "/uploads/shelter/damage1.jpg"
+      },
+      "amount_requested": 5000
     }
   ]
 }
@@ -147,115 +137,89 @@ shelter payload:
 Medical payload:
 ---------------
 {
-  "user_id": 1,
+  "user_id": 2,
   "category_id": 4,
-  "request_title": "Medical Help Needed",
-  "request_description": "Support required for surgery",
+  "request_title": "Surgery Financial Support",
+  "request_description": "Need support for kidney surgery treatment",
 
   "status_id": 1,
-  "urgency_id": 2,
+  "urgency_id": 3,
 
   "patients": [
     {
-      "patient_name": "Ramesh",
-      "age": 45,
+      "patient_name": "Arun Kumar",
+      "age": 38,
       "gender_id": 1,
 
-      "medical_condition": "Heart Surgery",
-      "blood_group_id": 2,
-      "medical_category_id": 3,
+      "medical_condition": "Kidney Stone Surgery",
+      "blood_group_id": 1,
+      "medical_category_id": 2,
 
-      "hospital_name": "Apollo Hospital",
+      "hospital_name": "Fortis Hospital",
       "hospital_address": "Chennai",
-      "doctor_name": "Dr. Kumar",
+      "doctor_name": "Dr. Mehta",
 
-      "financial_information": "Insurance Partial",
-      "amount_paid": 50000,
-      "amount_requested": 150000,
-      "funds_needed_by": "2026-05-20",
+      "financial_information": "No Insurance",
+      "amount_paid": 20000,
+      "amount_requested": 120000,
+      "funds_needed_by": "2026-06-10",
 
-      "contact_information": "9876543210",
-      "emergency_contact_name": "Suresh",
+      "contact_information": "9001122334",
+      "emergency_contact_name": "Selvam",
 
-      "support_type_ids": [1, 2, 3],
+      "support_type_ids": [1, 2],
 
       "attachment": {
         "document_type_id": 1,
-        "file_path": "/uploads/report.pdf"
+        "file_path": "/uploads/medical/report1.pdf"
       },
       "prescription": {
         "document_type_id": 2,
-        "file_path": "/uploads/prescription.pdf"
+        "file_path": "/uploads/medical/prescription1.pdf"
       },
       "estimation": {
         "document_type_id": 3,
-        "file_path": "/uploads/estimate.pdf"
+        "file_path": "/uploads/medical/estimate1.pdf"
       }
-    },
+    }
   ]
 }
-
 ------------------
 Education payload:
 ------------------
 
 {
   "user_id": 1,
-  "category_id": 8,
-  "request_title": "Education Support Required",
-  "request_description": "Need financial help for students",
+  "category_id": 3,
+  "request_title": "School Fee Assistance",
+  "request_description": "Financial help needed for school education",
 
   "status_id": 1,
   "urgency_id": 2,
 
   "students": [
     {
-      "person_name": "Arun Kumar",
-      "age": 18,
-      "grade_level": "12th",
+      "person_name": "Ravi",
+      "age": 17,
+      "grade_level": "11th",
 
       "education_support_type_id": 1,
-      "amount_requested": 50000,
+      "amount_requested": 30000,
 
-      "institution_name": "ABC Higher Secondary School",
-      "college_id": "SCH12345",
-      "institution_address": "Chennai, Tamil Nadu",
+      "institution_name": "Government Higher Secondary School",
+      "college_id": "SCH10021",
+      "institution_address": "Coimbatore, Tamil Nadu",
 
-      "contact_person_name": "Principal Rajesh",
-      "contact_person_phone": "9876543210",
-
-      "verification_document": {
-        "document_type_id": 1,
-        "file_path": "/uploads/mark_sheet.pdf"
-      },
-      "education_support_document": {
-        "document_type_id": 2,
-        "file_path": "/uploads/fee_structure.pdf"
-      }
-    },
-
-    {
-      "person_name": "Priya",
-      "age": 20,
-      "grade_level": "B.Sc Computer Science",
-
-      "education_support_type_id": 2,
-      "amount_requested": 75000,
-
-      "institution_name": "XYZ College",
-      "college_id": "COL56789",
-      "institution_address": "Madurai, Tamil Nadu",
-
-      "contact_person_name": "Admin Office",
-      "contact_person_phone": "9123456780",
+      "contact_person_name": "Headmaster",
+      "contact_person_phone": "9000011122",
 
       "verification_document": {
         "document_type_id": 1,
-        "file_path": "/uploads/id_card.jpg"
+        "file_path": "/uploads/edu/verif_ravi.pdf"
       },
       "education_support_document": {
         "document_type_id": 2,
-        "file_path": "/uploads/college_fee.pdf"
+        "file_path": "/uploads/edu/fees_ravi.pdf"
       }
     }
   ]
@@ -268,26 +232,29 @@ Clothes payload:
 {
   "user_id": 1,
   "category_id": 2,
-  "request_title": "Clothes Request for Summer Drive",
-  "request_description": "Distributing clothes for children in need",
+  "request_title": "School Uniform Support Program",
+  "request_description": "Uniforms for school children in rural area",
   "status_id": 1,
-  "urgency_id": 2,
+  "urgency_id": 3,
+  "amount_requested": 5000,
   "beneficiaries": [
     {
-      "person_name": "Arun Kumar",
-      "age_group": 3,
-      "gender_preference": 1,
-      "clothing_category_id": 5,
-      "need_by_date": "2026-04-15",
-      "urgency_level_id": 2,
+      "person_name": "Meena",
+      "age_group": 2,
+      "gender_preference": 2,
+      "clothing_category_id": 3,
+      "need_by_date": "2026-06-10",
+      "urgency_level_id": 1,
+
       "verification_document": {
         "document_type_id": 1,
-        "file_path": "attachments/verification_arun.pdf"
+        "file_path": "attachments/verification_meena.pdf"
       },
       "beneficiary_photo": {
         "document_type_id": 2,
-        "file_path": "attachments/photo_arun.jpg"
+        "file_path": "attachments/photo_meena.jpg"
       },
+
       "sizes": [
         {
           "clothing_type": "Shirt",
@@ -295,38 +262,14 @@ Clothes payload:
           "quantity": 2
         },
         {
-          "clothing_type": "Pants",
+          "clothing_type": "Skirt",
           "size_id": 2,
           "quantity": 2
-        }
-      ]
-    },
-    {
-      "person_name": "Priya Sharma",
-      "age_group": 2,
-      "gender_preference": 2,
-      "clothing_category_id": 5,
-      "need_by_date": "2026-04-20",
-      "urgency_level_id": 1,
-      "verification_document": {
-        "document_type_id": 1,
-        "file_path": "attachments/verification_priya.pdf"
-      },
-      "beneficiary_photo": {
-        "document_type_id": 2,
-        "file_path": "attachments/photo_priya.jpg"
-      },
-      "sizes": [
-        {
-          "clothing_type": "Dress",
-          "size_id": 3,
-          "quantity": 1
         }
       ]
     }
   ]
 }
-
 ------------------
 Food payload: - Grocery 
 ------------------
@@ -336,25 +279,28 @@ Food payload: - Grocery
   "food_request_category_id": 3,
   "status_id": 1,
   "urgency_id": 2,
-  "request_title": "Grocery Essentials for Family",
-  "request_description": "Need groceries for a family of four",
-  "frequency_id": 1,
-  "address": "789 Market Lane",
-  "landmark": "Near Grocery Store",
+  "request_title": "Monthly Grocery Support for Family",
+  "request_description": "Basic grocery items required for a family of 5",
+
+  "frequency_id": 2,
+  "address": "Anna Nagar, Chennai",
+  "landmark": "Near Park",
   "delivery_required": true,
+  "amount_requested": 7000,
+
   "items": [
     {
       "item_master_id": 1,
       "custom_item_name": "Rice",
-      "quantity": 10,
+      "quantity": 20,
       "unit_id": 2,
       "priority_id": 1
     },
     {
-      "item_master_id": 2,
-      "custom_item_name": "Wheat Flour",
-      "quantity": 5,
-      "unit_id": 2,
+      "item_master_id": 3,
+      "custom_item_name": "Cooking Oil",
+      "quantity": 2,
+      "unit_id": 1,
       "priority_id": 2
     }
   ]
@@ -368,21 +314,22 @@ Food payload: - Daily Meal
   "user_id": 1,
   "food_request_category_id": 2,
   "status_id": 1,
-  "urgency_id": 2,
-  "request_title": "Daily Meal for Students",
-  "request_description": "Requesting daily meals for students",
-  "number_of_people": 30,
+  "urgency_id": 1,
+  "request_title": "Monthly Meal Support Program",
+  "request_description": "Daily meals required for underprivileged children",
+  "number_of_people": 60,
   "age_group_id": 2,
   "special_need_id": 1,
   "meal_type_id": 1,
   "frequency_id": 2,
-  "duration_id": 1,
-  "custom_days": null,
+  "duration_id": 2,
+  "custom_days": "90",
   "custom_date_range": null,
-  "time_slot_id": 2,
-  "address": "456 School Road",
-  "landmark": "Opposite Library",
-  "delivery_required": false
+  "amount_requested": 500,
+  "time_slot_id": 3,
+  "address": "Adyar, Chennai",
+  "landmark": "Near Community Hall",
+  "delivery_required": true
 }
 
 ------------------
@@ -394,17 +341,19 @@ Food payload: - Cooked Food
   "food_request_category_id": 1,
   "status_id": 1,
   "urgency_id": 2,
-  "request_title": "Cooked Food for Event",
-  "request_description": "Need cooked meals for children event",
+  "request_title": "Cooked Meals for School Event",
+  "request_description": "Need freshly cooked meals for 40 children event",
+
   "food_type_id": 1,
-  "meal_type_id": 2,
-  "number_of_people": 50,
-  "plates_required": 50,
-  "required_date": "2026-04-15",
-  "time_slot_id": 3,
+  "meal_type_id": 1,
+  "number_of_people": 40,
+  "plates_required": 40,
+  "required_date": "2026-05-12",
+  "time_slot_id": 2,
   "urgency_level_id": 2,
-  "address": "123 Main Street",
-  "landmark": "Near City Park",
+
+  "address": "Anna Nagar, Chennai",
+  "landmark": "Near Metro Station",
   "delivery_required": true
 }
 

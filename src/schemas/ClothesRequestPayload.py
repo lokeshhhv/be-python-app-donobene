@@ -20,6 +20,7 @@ class BeneficiaryPayload(BaseModel):
     urgency_level_id: int
     verification_document: Optional[AttachmentPayload] = None  # object, not ID
     beneficiary_photo: Optional[AttachmentPayload] = None      # object, not ID
+    amount_requested: Optional[float] = None
     sizes: List[SizePayload]
 
 class ClothesRequestPayload(BaseModel):

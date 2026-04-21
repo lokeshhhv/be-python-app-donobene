@@ -78,7 +78,8 @@ async def create_shelter_request(
             status_id=payload.status_id,
             urgency_id=payload.urgency_id,
             verified=payload.verified,
-            reject_reason=payload.reject_reason
+            reject_reason=payload.reject_reason,
+            # amount_requested=payload.amount_requested
         )
 
         db.add(new_request)
@@ -144,7 +145,8 @@ async def create_shelter_request(
                     duration_option_id=ben.duration_option_id,
                     number_of_days=ben.number_of_days,
                     verification_document_id=verification_id,
-                    damage_document_id=damage_id
+                    damage_document_id=damage_id,
+                    amount_requested=payload.amount_requested
                 )
             )
 
