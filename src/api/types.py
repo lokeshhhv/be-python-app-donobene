@@ -849,8 +849,9 @@ async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
                 WHERE mr.status_id = 2
 
                 UNION ALL
-                SELECT 2, cr.amount_requested
-                FROM clothes_requests cr
+                SELECT 2, cb.amount_requested
+                FROM clothes_beneficiaries cb
+                JOIN clothes_requests cr ON cb.clothes_request_id = cr.id
                 WHERE cr.status_id = 2
 
                 UNION ALL
@@ -861,8 +862,7 @@ async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
                 UNION ALL
                 SELECT 1, fd.amount_requested
                 FROM food_daily_meal_requests fd
-                WHERE fd.status_id = 2
-            ) data
+                WHERE fd.status_id = 2)data
             ON rc.id = data.category_id
             GROUP BY rc.id
         ) agg

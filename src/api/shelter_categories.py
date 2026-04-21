@@ -88,7 +88,7 @@ async def create_shelter_request(
         # ✅ Beneficiaries
         for i, ben in enumerate(payload.beneficiaries, start=1):
 
-         # ATTACHMENTS
+         # 🔥 ATTACHMENTS
             verification_id = None
             damage_id = None
 
