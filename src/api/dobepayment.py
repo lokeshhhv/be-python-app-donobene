@@ -88,7 +88,9 @@ async def create_donation(data: DonationRequest, db: AsyncSession = Depends(get_
 
     return {
         "order_id": order["id"],
-        "amount": order["amount"]
+        "amount": order["amount"],
+        "currency": order["currency"],
+        "key": os.getenv("RAZORPAY_KEY_ID")
     }
 
 @router.post("/verify")
