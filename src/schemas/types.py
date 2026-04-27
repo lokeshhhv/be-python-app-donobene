@@ -27,3 +27,4 @@ class UserProfileResponse(BaseModel):
     attachment: Optional[AttachmentResponse]
     user_type: Optional[str]
     user_subtype: Optional[str]
+    user_type_id: Optional[int]

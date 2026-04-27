@@ -125,7 +125,8 @@ async def get_users(
             state=user.state,
             attachment=attachment,
             user_type=type_donor_name,
-            user_subtype=user_type_name
+            user_subtype=user_type_name,
+            user_type_id=user.type_donor_id if hasattr(user, 'type_donor_id') else None,
         )
         return success_response(data=data.dict(), message="Fetched user profile")
     except Exception as e:
