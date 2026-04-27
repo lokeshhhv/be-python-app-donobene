@@ -1,5 +1,5 @@
 # GET endpoint for clothes donations by user
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -9,6 +9,19 @@ from src.models.donor import ClothesDonation, ClothesDonationDetail, DeliveryPre
 from src.db.session import get_db
 from src.schemas.donor import ClothesDonationCreate, DonorAvailabilityTypeSchema, DonorConsentTypeSchema, DonorOrganDonationSchema, DonorStemcellDonationSchema, DonorTissueDonationSchema, FoodDonationCreate, MedicalDonationCategorySchema, MedicalDonationCreate, MedicalDonationSchema
 from src.core.dependencies import get_current_user_id
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 
 router = APIRouter(
     prefix="/donor",
@@ -16,31 +29,30 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.post("/food-donation")
+@router.post("/food-donation", response_model=dict)
 async def create_food_donation(
     payload: FoodDonationCreate,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-
         async def _exists(model, value: int):
             result = await db.execute(select(model.id).where(model.id == value))
             return result.scalar_one_or_none() is not None
 
         # ✅ validate
         if not await _exists(User, payload.user_id):
-            raise HTTPException(400, "Invalid user_id")
+            return error_response(message="Invalid user_id")
 
         if not await _exists(DonorCategory, payload.category_id):
-            raise HTTPException(400, "Invalid category_id")
+            return error_response(message="Invalid category_id")
 
         if payload.delivery_preference_id and not await _exists(DeliveryPreference, payload.delivery_preference_id):
-            raise HTTPException(400, "Invalid delivery_preference_id")
+            return error_response(message="Invalid delivery_preference_id")
 
         for item in payload.items:
             if not await _exists(Unit, item.unit_id):
-                raise HTTPException(400, f"Invalid unit_id {item.unit_id}")
-            
+                return error_response(message=f"Invalid unit_id {item.unit_id}")
+
         # ✅ create donation
         new_donation = FoodDonation(
             user_id=payload.user_id,
@@ -87,65 +99,76 @@ async def create_food_donation(
             db.add(donation_detail)
 
         await db.commit()
-
-        return {"message": "Food donation created successfully", "donation_id": new_donation.id}
-
+        return success_response(data={"donation_id": new_donation.id}, message="Food donation created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(500, f"An error occurred while creating the food donation: {str(e)}")
+        logger.error(f"Error in create_food_donation: {e}")
+        return error_response(message="An error occurred while creating the food donation", error=str(e))
 
-@router.get("/donation-categories", response_model=list[dict])
+@router.get("/donation-categories", response_model=dict)
 async def get_food_donation_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorCategory))
-    categories = result.scalars().all()
-    return [
-        {"id": cat.id, "category_id": cat.category_id, "category_type": cat.category_type, "backgroundColor": cat.backgroundColor, "icon": cat.icon} for cat in categories
-    ]
+    try:
+        result = await db.execute(select(DonorCategory))
+        categories = result.scalars().all()
+        return success_response(data=[{"id": cat.id, "category_id": cat.category_id, "category_type": cat.category_type, "backgroundColor": cat.backgroundColor, "icon": cat.icon} for cat in categories], message="Fetched donation categories")
+    except Exception as e:
+        logger.error(f"Error in get_food_donation_categories: {e}")
+        return error_response(message="Failed to fetch donation categories", error=str(e))
 
-@router.get("/food-donation-delivery-preferences", response_model=list[dict])
+@router.get("/food-donation-delivery-preferences", response_model=dict)
 async def get_food_donation_delivery_preferences(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DeliveryPreference))
-    preferences = result.scalars().all()
-    return [
-        {"id": pref.id, "name": pref.name} for pref in preferences
-    ]
+    try:
+        result = await db.execute(select(DeliveryPreference))
+        preferences = result.scalars().all()
+        return success_response(data=[{"id": pref.id, "name": pref.name} for pref in preferences], message="Fetched delivery preferences")
+    except Exception as e:
+        logger.error(f"Error in get_food_donation_delivery_preferences: {e}")
+        return error_response(message="Failed to fetch delivery preferences", error=str(e))
 
-@router.get("/food-donation-units", response_model=list[dict])
+@router.get("/food-donation-units", response_model=dict)
 async def get_food_donation_units(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Unit))
-    units = result.scalars().all()
-    return [
-        {"id": unit.id, "name": unit.name} for unit in units
-    ]
+    try:
+        result = await db.execute(select(Unit))
+        units = result.scalars().all()
+        return success_response(data=[{"id": unit.id, "name": unit.name} for unit in units], message="Fetched food donation units")
+    except Exception as e:
+        logger.error(f"Error in get_food_donation_units: {e}")
+        return error_response(message="Failed to fetch food donation units", error=str(e))
 
 # Clothes donation endpoints would be similar to the above structure, with appropriate changes to models, schemas, and logic.
 
-@router.get("/clothes-donation-categories", response_model=list[dict])
+@router.get("/clothes-donation-categories", response_model=dict)
 async def get_clothes_donation_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorClothesCategory))
-    categories = result.scalars().all()
-    return [
-        {"id": cat.id, "name": cat.name} for cat in categories
-    ]
+    try:
+        result = await db.execute(select(DonorClothesCategory))
+        categories = result.scalars().all()
+        return success_response(data=[{"id": cat.id, "name": cat.name} for cat in categories], message="Fetched clothes donation categories")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_donation_categories: {e}")
+        return error_response(message="Failed to fetch clothes donation categories", error=str(e))
 
-@router.get("/clothes-donation-sizes", response_model=list[dict])
+@router.get("/clothes-donation-sizes", response_model=dict)
 async def get_clothes_donation_sizes(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorClothesSize))
-    sizes = result.scalars().all()
-    return [
-        {"id": size.id, "name": size.name} for size in sizes
-    ]
+    try:
+        result = await db.execute(select(DonorClothesSize))
+        sizes = result.scalars().all()
+        return success_response(data=[{"id": size.id, "name": size.name} for size in sizes], message="Fetched clothes donation sizes")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_donation_sizes: {e}")
+        return error_response(message="Failed to fetch clothes donation sizes", error=str(e))
 
-@router.get("/clothes-donation-conditions", response_model=list[dict])
+@router.get("/clothes-donation-conditions", response_model=dict)
 async def get_clothes_donation_conditions(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorClothesCondition))
-    conditions = result.scalars().all()
-    return [
-        {"id": condition.id, "name": condition.name} for condition in conditions
-    ]
+    try:
+        result = await db.execute(select(DonorClothesCondition))
+        conditions = result.scalars().all()
+        return success_response(data=[{"id": condition.id, "name": condition.name} for condition in conditions], message="Fetched clothes donation conditions")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_donation_conditions: {e}")
+        return error_response(message="Failed to fetch clothes donation conditions", error=str(e))
 
 
-@router.post("/clothes-donation")
+@router.post("/clothes-donation", response_model=dict)
 async def create_clothes_donation(
     payload: ClothesDonationCreate,
     db: AsyncSession = Depends(get_db)
@@ -157,18 +180,18 @@ async def create_clothes_donation(
 
         # ✅ validate
         if not await _exists(User, payload.user_id):
-            raise HTTPException(400, "Invalid user_id")
+            return error_response(message="Invalid user_id")
 
         for detail in payload.details:
             if not await _exists(DonorClothesCategory, detail.category_id):
-                raise HTTPException(400, f"Invalid category_id {detail.category_id}")
+                return error_response(message=f"Invalid category_id {detail.category_id}")
             if not await _exists(DonorClothesSize, detail.size_id):
-                raise HTTPException(400, f"Invalid size_id {detail.size_id}")
+                return error_response(message=f"Invalid size_id {detail.size_id}")
             if not await _exists(DonorClothesCondition, detail.condition_id):
-                raise HTTPException(400, f"Invalid condition_id {detail.condition_id}")
+                return error_response(message=f"Invalid condition_id {detail.condition_id}")
 
         if payload.pickup_type_id and not await _exists(DeliveryPreference, payload.pickup_type_id):
-            raise HTTPException(400, f"Invalid pickup_type_id {payload.pickup_type_id}")
+            return error_response(message=f"Invalid pickup_type_id {payload.pickup_type_id}")
 
         # ✅ create donation
         new_donation = ClothesDonation(
@@ -214,59 +237,87 @@ async def create_clothes_donation(
             db.add(donation_detail)
 
         await db.commit()
-
-        return {"message": "Clothes donation created successfully", "donation_id": new_donation.id}
-
+        return success_response(data={"donation_id": new_donation.id}, message="Clothes donation created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(500, f"An error occurred while creating the clothes donation: {str(e)}")
+        logger.error(f"Error in create_clothes_donation: {e}")
+        return error_response(message="An error occurred while creating the clothes donation", error=str(e))
     
 # medical donation endpoints would be similar to the above structure, with appropriate changes to models, schemas, and logic.
 
 
-@router.get("/medical-donation-categories", response_model=list[MedicalDonationCategorySchema])
+@router.get("/medical-donation-categories", response_model=dict)
 async def get_medical_donation_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(MedicalDonationCategory).where(MedicalDonationCategory.is_active == True))
-    categories = result.scalars().all()
-    # Cast size to string for response validation
-    return [
-        MedicalDonationCategorySchema(
-            id=cat.id,
-            name=cat.name,
-            description=cat.description,
-            icon=cat.icon,
-            size=str(cat.size) if cat.size is not None else None,
-            is_active=cat.is_active
-        )
-        for cat in categories
-    ]
+    try:
+        result = await db.execute(select(MedicalDonationCategory).where(MedicalDonationCategory.is_active == True))
+        categories = result.scalars().all()
+        # Cast size to string for response validation
+        data = [
+            MedicalDonationCategorySchema(
+                id=cat.id,
+                name=cat.name,
+                description=cat.description,
+                icon=cat.icon,
+                size=str(cat.size) if cat.size is not None else None,
+                is_active=cat.is_active
+            )
+            for cat in categories
+        ]
+        return success_response(data=data, message="Fetched medical donation categories")
+    except Exception as e:
+        logger.error(f"Error in get_medical_donation_categories: {e}")
+        return error_response(message="Failed to fetch medical donation categories", error=str(e))
 
 
-@router.get("/stemcell-donations", response_model=list[DonorStemcellDonationSchema])
+@router.get("/stemcell-donations", response_model=dict)
 async def get_stemcell_donations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorStemcellDonation))
-    donations = result.scalars().all()
-    return donations
+    try:
+        result = await db.execute(select(DonorStemcellDonation))
+        donations = result.scalars().all()
+        return success_response(data=donations, message="Fetched stemcell donations")
+    except Exception as e:
+        logger.error(f"Error in get_stemcell_donations: {e}")
+        return error_response(message="Failed to fetch stemcell donations", error=str(e))
 
-@router.get("/tissue-donations", response_model=list[DonorTissueDonationSchema])
+@router.get("/tissue-donations", response_model=dict)
 async def get_tissue_donations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorTissueDonation))
-    return result.scalars().all()
+    try:
+        result = await db.execute(select(DonorTissueDonation))
+        donations = result.scalars().all()
+        return success_response(data=donations, message="Fetched tissue donations")
+    except Exception as e:
+        logger.error(f"Error in get_tissue_donations: {e}")
+        return error_response(message="Failed to fetch tissue donations", error=str(e))
 
-@router.get("/organ-donations", response_model=list[DonorOrganDonationSchema])
+@router.get("/organ-donations", response_model=dict)
 async def get_organ_donations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorOrganDonation))
-    return result.scalars().all()
+    try:
+        result = await db.execute(select(DonorOrganDonation))
+        donations = result.scalars().all()
+        return success_response(data=donations, message="Fetched organ donations")
+    except Exception as e:
+        logger.error(f"Error in get_organ_donations: {e}")
+        return error_response(message="Failed to fetch organ donations", error=str(e))
 
-@router.get("/consent-types", response_model=list[DonorConsentTypeSchema])
+@router.get("/consent-types", response_model=dict)
 async def get_consent_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorConsentType))
-    return result.scalars().all()
+    try:
+        result = await db.execute(select(DonorConsentType))
+        consent_types = result.scalars().all()
+        return success_response(data=consent_types, message="Fetched consent types")
+    except Exception as e:
+        logger.error(f"Error in get_consent_types: {e}")
+        return error_response(message="Failed to fetch consent types", error=str(e))
 
-@router.get("/availability-types", response_model=list[DonorAvailabilityTypeSchema])
+@router.get("/availability-types", response_model=dict)
 async def get_availability_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DonorAvailabilityType))
-    return result.scalars().all()
+    try:
+        result = await db.execute(select(DonorAvailabilityType))
+        availability_types = result.scalars().all()
+        return success_response(data=availability_types, message="Fetched availability types")
+    except Exception as e:
+        logger.error(f"Error in get_availability_types: {e}")
+        return error_response(message="Failed to fetch availability types", error=str(e))
 
 @router.post("/medical-donations")
 async def create_medical_donation(payload: MedicalDonationCreate, db: AsyncSession = Depends(get_db)):
@@ -450,10 +501,11 @@ async def get_my_donations(
                 "stemcells": [stemcell_map.get(sid).name for sid in stemcell_ids if sid in stemcell_map]
             })
 
-        return {
+        return success_response(data={
             "clothes_donations": clothes_donations,
             "food_donations": food_donations,
             "medical_donations": medical_donations,
-        }
+        }, message="Fetched all donations successfully")
     except Exception as e:
-        raise HTTPException(500, f"Error fetching donations: {str(e)}")
+        logger.error(f"Error in get_my_donations: {e}")
+        return error_response(message="Error fetching donations", error=str(e))

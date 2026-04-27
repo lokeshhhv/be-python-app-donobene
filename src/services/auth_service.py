@@ -180,11 +180,33 @@ async def verify_otp_login(payload: VerifyOTPRequest, db: AsyncSession) -> Token
     )
 
 # 4. Refresh Access Token
-async def refresh_access_token(payload: RefreshTokenRequest) -> NewAccessTokenResponse:
-    data = decode_token(payload.refresh_token)
-    user_id = data["sub"]
-    phone = data["phone"]
-    access_token = create_access_token({"sub": user_id, "phone": phone})
+async def refresh_access_token(payload: RefreshTokenRequest, db: AsyncSession) -> NewAccessTokenResponse:
+    print("[DEBUG] Starting refresh_access_token")
+    try:
+        data = decode_token(payload.refresh_token)
+        print(f"[DEBUG] Decoded token data: {data}")
+        user_id = data["sub"]
+    except Exception as e:
+        print(f"[DEBUG] Token decode failed: {e}")
+        raise
+    from sqlalchemy.future import select
+    from src.models.types import User
+    try:
+        result = await db.execute(select(User).where(User.id == int(user_id)))
+        user = result.scalar_one_or_none()
+        print(f"[DEBUG] User lookup for id={user_id}: {user}")
+    except Exception as e:
+        print(f"[DEBUG] DB lookup failed: {e}")
+        raise
+    if not user:
+        print(f"[DEBUG] No user found for id={user_id}")
+        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        access_token = create_access_token({"sub": user_id})
+        print(f"[DEBUG] Created new access token for user_id={user_id}")
+    except Exception as e:
+        print(f"[DEBUG] Access token creation failed: {e}")
+        raise
     return NewAccessTokenResponse(access_token=access_token)
 
 # --- OTP Email Template Renderer ---

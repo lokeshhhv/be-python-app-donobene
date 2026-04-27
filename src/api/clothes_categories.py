@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Optional
+from typing import Any, Optional
 
 from src.schemas.ClothesRequestPayload import ClothesRequestPayload
 from src.models.clothes import ClothesRequest, ClothesRequestBeneficiaries, ClothesRequestBeneficiariesSizes
@@ -14,41 +14,59 @@ from src.models.types import Attachment, RequestCategory
 from src.db.session import get_db
 from src.core.dependencies import get_current_user_id
 
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 router = APIRouter(
     prefix="/api/v1/clothes",
     tags=["Clothes Categories"],
     # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/clothes-age-groups", response_model=list[dict])
+@router.get("/clothes-age-groups", response_model=dict)
 async def get_clothes_age_groups(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ClothesAgeGroup))
-    clothes_age_groups = result.scalars().all()
-    return [
-        {"id": cag.id, "name": cag.name} for cag in clothes_age_groups
-    ]
+    try:
+        result = await db.execute(select(ClothesAgeGroup))
+        clothes_age_groups = result.scalars().all()
+        return success_response(data=[{"id": cag.id, "name": cag.name} for cag in clothes_age_groups], message="Fetched clothes age groups")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_age_groups: {e}")
+        return error_response(message="Failed to fetch clothes age groups", error=str(e))
 
-@router.get("/clothes-categories", response_model=list[dict])
+@router.get("/clothes-categories", response_model=dict)
 async def get_clothes_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ClothingCategory))
-    clothes_categories = result.scalars().all()
-    return [
-        {"id": cc.id, "name": cc.name} for cc in clothes_categories
-    ]
+    try:
+        result = await db.execute(select(ClothingCategory))
+        clothes_categories = result.scalars().all()
+        return success_response(data=[{"id": cc.id, "name": cc.name} for cc in clothes_categories], message="Fetched clothes categories")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_categories: {e}")
+        return error_response(message="Failed to fetch clothes categories", error=str(e))
 
-@router.get("/clothes-size-rows", response_model=list[dict])
+@router.get("/clothes-size-rows", response_model=dict)
 async def get_clothes_size_rows(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ClothingSizeRow))
-    clothes_size_rows = result.scalars().all()
-    return [
-        {"id": csr.id, "name": csr.name} for csr in clothes_size_rows
-    ]
+    try:
+        result = await db.execute(select(ClothingSizeRow))
+        clothes_size_rows = result.scalars().all()
+        return success_response(data=[{"id": csr.id, "name": csr.name} for csr in clothes_size_rows], message="Fetched clothes size rows")
+    except Exception as e:
+        logger.error(f"Error in get_clothes_size_rows: {e}")
+        return error_response(message="Failed to fetch clothes size rows", error=str(e))
 
 @router.post("/clothes-request", response_model=dict)
 async def create_full_clothes_request(
     payload: ClothesRequestPayload, 
     db: AsyncSession = Depends(get_db)):
-
     try:
         # 1️⃣ Create main request
         new_request = ClothesRequest(
@@ -62,7 +80,6 @@ async def create_full_clothes_request(
         )
         db.add(new_request)
         await db.flush()  # get request ID
-
 
         # 2️⃣ Loop beneficiaries
         for ben in payload.beneficiaries:
@@ -123,9 +140,8 @@ async def create_full_clothes_request(
 
         # 5️⃣ Commit everything
         await db.commit()
-
-        return {"message": "Clothes request created successfully", "request_id": new_request.id}
-
+        return success_response(data={"request_id": new_request.id}, message="Clothes request created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in create_full_clothes_request: {e}")
+        return error_response(message="Failed to create clothes request", error=str(e))

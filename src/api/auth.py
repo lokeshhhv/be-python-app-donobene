@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.schemas.auth import (
@@ -11,6 +13,19 @@ from src.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 
 @router.post(
     "/register",
@@ -21,7 +36,12 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 async def register(
     payload: RegisterRequest, db: AsyncSession = Depends(get_db)
 ):
-    return await register_user(payload, db)
+    try:
+        data = await register_user(payload, db)
+        return data
+    except Exception as e:
+        logger.error(f"Error in register: {e}")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 
 @router.post(
@@ -33,7 +53,12 @@ async def register(
 async def send_otp_route(
     payload: SendOTPRequest, db: AsyncSession = Depends(get_db)
 ):
-    return await send_otp(payload, db)
+    try:
+        data = await send_otp(payload, db)
+        return data
+    except Exception as e:
+        logger.error(f"Error in send_otp_route: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send OTP")
 
 
 @router.post(
@@ -45,7 +70,12 @@ async def send_otp_route(
 async def verify_otp_route(
     payload: VerifyOTPRequest, db: AsyncSession = Depends(get_db)
 ):
-    return await verify_otp_login(payload, db)
+    try:
+        data = await verify_otp_login(payload, db)
+        return data
+    except Exception as e:
+        logger.error(f"Error in verify_otp_route: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify OTP")
 
 
 @router.post(
@@ -55,6 +85,11 @@ async def verify_otp_route(
     responses={401: {"model": ErrorResponse}},
 )
 async def refresh_token_route(
-    payload: RefreshTokenRequest
+    payload: RefreshTokenRequest, db: AsyncSession = Depends(get_db)
 ):
-    return await refresh_access_token(payload)
+    try:
+        data = await refresh_access_token(payload, db)
+        return data
+    except Exception as e:
+        logger.error(f"Error in refresh_token_route: {e}")
+        raise HTTPException(status_code=500, detail="Failed to refresh access token")

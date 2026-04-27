@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,19 @@ from src.models.shelter import ShelterSpecialNeeds
 from src.models.shelter import ShelterDurationOptions
 from src.core.dependencies import get_current_user_id
 
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 router = APIRouter(
     prefix="/api/v1/shelter",
     tags=["Shelter Categories"],
@@ -24,50 +39,65 @@ router = APIRouter(
 # ===========================
 # ✅ MASTER GET APIs
 # ===========================
-@router.get("/staying-types", response_model=list[dict])
+@router.get("/staying-types", response_model=dict)
 async def get_shelter_staying_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ShelterStayingTypes))
-    data = result.scalars().all()
-    return [{"id": d.id, "name": d.name} for d in data] 
+    try:
+        result = await db.execute(select(ShelterStayingTypes))
+        data = result.scalars().all()
+        return success_response(data=[{"id": d.id, "name": d.name} for d in data], message="Fetched staying types")
+    except Exception as e:
+        logger.error(f"Error in get_shelter_staying_types: {e}")
+        return error_response(message="Failed to fetch staying types", error=str(e))
 
-@router.get("/requirement-types", response_model=list[dict])
+@router.get("/requirement-types", response_model=dict)
 async def get_shelter_requirement_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ShelterRequirementTypes))
-    data = result.scalars().all()
-    return [{"id": d.id, "name": d.name} for d in data]
+    try:
+        result = await db.execute(select(ShelterRequirementTypes))
+        data = result.scalars().all()
+        return success_response(data=[{"id": d.id, "name": d.name} for d in data], message="Fetched requirement types")
+    except Exception as e:
+        logger.error(f"Error in get_shelter_requirement_types: {e}")
+        return error_response(message="Failed to fetch requirement types", error=str(e))
 
-@router.get("/special-needs", response_model=list[dict])
+@router.get("/special-needs", response_model=dict)
 async def get_shelter_special_needs(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ShelterSpecialNeeds))
-    data = result.scalars().all()
-    return [{"id": d.id, "name": d.name} for d in data]
+    try:
+        result = await db.execute(select(ShelterSpecialNeeds))
+        data = result.scalars().all()
+        return success_response(data=[{"id": d.id, "name": d.name} for d in data], message="Fetched special needs")
+    except Exception as e:
+        logger.error(f"Error in get_shelter_special_needs: {e}")
+        return error_response(message="Failed to fetch special needs", error=str(e))
 
-@router.get("/duration-options", response_model=list[dict])
+@router.get("/duration-options", response_model=dict)
 async def get_shelter_duration_options(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ShelterDurationOptions))
-    data = result.scalars().all()
-    return [{"id": d.id, "name": d.name} for d in data] 
+    try:
+        result = await db.execute(select(ShelterDurationOptions))
+        data = result.scalars().all()
+        return success_response(data=[{"id": d.id, "name": d.name} for d in data], message="Fetched duration options")
+    except Exception as e:
+        logger.error(f"Error in get_shelter_duration_options: {e}")
+        return error_response(message="Failed to fetch duration options", error=str(e))
 
 # =========================
 # ✅ POST
 # =========================
-@router.post("/shelter-request")
+@router.post("/shelter-request", response_model=dict)
 async def create_shelter_request(
     payload: ShelterRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-
         async def _exists(model, value: int):
             result = await db.execute(select(model.id).where(model.id == value))
             return result.scalar_one_or_none() is not None
 
         # ✅ Validate main
         if not await _exists(User, payload.user_id):
-            raise HTTPException(400, "Invalid user_id")
+            return error_response(message="Invalid user_id")
 
         if not await _exists(RequestCategory, payload.category_id):
-            raise HTTPException(400, "Invalid category_id")
+            return error_response(message="Invalid category_id")
 
         # ✅ Create request
         new_request = ShelterRequest(
@@ -81,14 +111,12 @@ async def create_shelter_request(
             reject_reason=payload.reject_reason,
             # amount_requested=payload.amount_requested
         )
-
         db.add(new_request)
         await db.flush()
 
         # ✅ Beneficiaries
         for i, ben in enumerate(payload.beneficiaries, start=1):
-
-         # 🔥 ATTACHMENTS
+            # 🔥 ATTACHMENTS
             verification_id = None
             damage_id = None
 
@@ -135,9 +163,8 @@ async def create_shelter_request(
             )
 
         await db.commit()
-
-        return {"message": "Created successfully", "request_id": new_request.id}
-
+        return success_response(data={"request_id": new_request.id}, message="Shelter request created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(500, str(e))
+        logger.error(f"Error in create_shelter_request: {e}")
+        return error_response(message="Failed to create shelter request", error=str(e))

@@ -1,10 +1,11 @@
-from typing import Optional
+
+from typing import Optional, Any
+
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text
-from sqlalchemy.orm import Query
 from src.schemas.types import AttachmentResponse, UserProfileResponse
 from src.schemas.ShelterRequestPayload import ShelterRequestPayload, ShelterBeneficiaryPayload
 from src.schemas.SportsRequestPayload import SportsRequestPayload, SportsBeneficiaryPayload
@@ -19,9 +20,28 @@ from src.db.session import get_db
 from src.models.types import UserType
 from src.models.types import TypeDonor
 from src.models.types import Gender
+import logging
+from pydantic import BaseModel
+
 
 
 from src.core.dependencies import get_current_user_id
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
+# Pydantic models for POST/PUT
+class SwitchUserRequest(BaseModel):
+    user_id: int
+    switched_to_type: int
 
 router = APIRouter(
     prefix="/api/v1/types",
@@ -34,279 +54,327 @@ public_router = APIRouter(
     tags=["Types"]
 )
 
-@router.get("/receiver-categories", response_model=list[dict])
-async def get_request_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RequestCategory))
-    request_categories = result.scalars().all()
-    return [
-        {"id": rc.id, "category_id": rc.category_id, "category_type": rc.category_type, "backgroundColor": rc.backgroundColor, "icon": rc.icon} for rc in request_categories
-    ]
 
-@router.get("/current-userdata/{user_id}", response_model=UserProfileResponse)
+@router.get("/receiver-categories", response_model=dict)
+async def get_request_categories(db: AsyncSession = Depends(get_db)):
+    try:
+        result = await db.execute(select(RequestCategory))
+        request_categories = result.scalars().all() or []
+        data = [
+            {"id": rc.id, "category_id": rc.category_id, "category_type": rc.category_type, "backgroundColor": rc.backgroundColor, "icon": rc.icon} for rc in request_categories
+        ]
+        return success_response(data=data, message="Fetched receiver categories")
+    except Exception as e:
+        logger.error(f"Error in get_request_categories: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch receiver categories", str(e)))
+
+
+@router.get("/current-userdata/{user_id}", response_model=dict)
 async def get_users(
     user_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    from src.models.types import Attachment, TypeDonor, UserType
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    # Build attachment info if present
-    attachment = None
-    if hasattr(user, 'attachment_id') and user.attachment_id:
-        attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
-        attachment_obj = attach_result.scalar_one_or_none()
-        if attachment_obj:
-            attachment = AttachmentResponse(
-                id=attachment_obj.id,
-                document_type_id=attachment_obj.document_type_id,
-                user_id=attachment_obj.user_id,
-                request_id=attachment_obj.request_id,
-                file_path=attachment_obj.file_path,
-                category_id=attachment_obj.category_id,
-                created_at=str(attachment_obj.created_at) if attachment_obj.created_at else None
-            )
+    try:
+        from src.models.types import Attachment, TypeDonor, UserType
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail=error_response("User not found"))
+        # Build attachment info if present
+        attachment = None
+        if hasattr(user, 'attachment_id') and user.attachment_id:
+            attach_result = await db.execute(select(Attachment).where(Attachment.id == user.attachment_id))
+            attachment_obj = attach_result.scalar_one_or_none()
+            if attachment_obj:
+                attachment = AttachmentResponse(
+                    id=attachment_obj.id,
+                    document_type_id=attachment_obj.document_type_id,
+                    user_id=attachment_obj.user_id,
+                    request_id=attachment_obj.request_id,
+                    file_path=attachment_obj.file_path,
+                    category_id=attachment_obj.category_id,
+                    created_at=str(attachment_obj.created_at) if attachment_obj.created_at else None
+                )
 
-    # Bring type_donor name
-    type_donor_name = None
-    if hasattr(user, 'type_donor_id') and user.type_donor_id:
-        td_result = await db.execute(select(TypeDonor).where(TypeDonor.id == user.type_donor_id))
-        td_obj = td_result.scalar_one_or_none()
-        if td_obj:
-            type_donor_name = td_obj.name
+        # Bring type_donor name
+        type_donor_name = None
+        if hasattr(user, 'type_donor_id') and user.type_donor_id:
+            td_result = await db.execute(select(TypeDonor).where(TypeDonor.id == user.type_donor_id))
+            td_obj = td_result.scalar_one_or_none()
+            if td_obj:
+                type_donor_name = td_obj.name
 
-    # Bring user_type name (donor_type_subtype)
-    user_type_name = None
-    if hasattr(user, 'donor_type_subtype') and user.donor_type_subtype:
-        ut_result = await db.execute(select(UserType).where(UserType.id == user.donor_type_subtype))
-        ut_obj = ut_result.scalar_one_or_none()
-        if ut_obj:
-            user_type_name = ut_obj.name
+        # Bring user_type name (donor_type_subtype)
+        user_type_name = None
+        if hasattr(user, 'donor_type_subtype') and user.donor_type_subtype:
+            ut_result = await db.execute(select(UserType).where(UserType.id == user.donor_type_subtype))
+            ut_obj = ut_result.scalar_one_or_none()
+            if ut_obj:
+                user_type_name = ut_obj.name
 
-    return UserProfileResponse(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        phone=user.phone,
-        organization_name=user.organization_name,
-        city=user.city,
-        pincode=user.pincode,
-        address=user.address,
-        state=user.state,
-        attachment=attachment,
-        user_type=type_donor_name,
-        user_subtype=user_type_name
-    )
+        data = UserProfileResponse(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            organization_name=user.organization_name,
+            city=user.city,
+            pincode=user.pincode,
+            address=user.address,
+            state=user.state,
+            attachment=attachment,
+            user_type=type_donor_name,
+            user_subtype=user_type_name
+        )
+        return success_response(data=data.dict(), message="Fetched user profile")
+    except Exception as e:
+        logger.error(f"Error in get_users: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch user data", str(e)))
 
 
-@public_router.get("/user-subtypes", response_model=list[dict])
+
+@public_router.get("/user-subtypes", response_model=dict)
 async def get_user_types(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(UserType))
-    user_types = result.scalars().all()
-    return [
-        {"id": ut.id, "name": ut.name} for ut in user_types
-    ]
+    try:
+        result = await db.execute(select(UserType))
+        user_types = result.scalars().all() or []
+        data = [{"id": ut.id, "name": ut.name} for ut in user_types]
+        return success_response(data=data, message="Fetched user subtypes")
+    except Exception as e:
+        logger.error(f"Error in get_user_types: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch user subtypes", str(e)))
 
 
-@public_router.get("/user-types", response_model=list[dict])
+
+@public_router.get("/user-types", response_model=dict)
 async def get_donor_types(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(TypeDonor).where(TypeDonor.flag == 1))
-    donor_types = result.scalars().all()
-    return [
-        {"id": dt.id, "name": dt.name, "icon": dt.icon, "icon_color": dt.icon_color, "icon_bg": dt.icon_bg, "description": dt.description} for dt in donor_types
-    ]
+    try:
+        result = await db.execute(select(TypeDonor).where(TypeDonor.flag == 1))
+        donor_types = result.scalars().all() or []
+        data = [
+            {"id": dt.id, "name": dt.name, "icon": dt.icon, "icon_color": dt.icon_color, "icon_bg": dt.icon_bg, "description": dt.description} for dt in donor_types
+        ]
+        return success_response(data=data, message="Fetched donor types")
+    except Exception as e:
+        logger.error(f"Error in get_donor_types: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch donor types", str(e)))
 
 # Example FastAPI endpoint
 
-@router.get("/genders", response_model=list[dict])
+
+@router.get("/genders", response_model=dict)
 async def get_genders(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Gender))
-    genders = result.scalars().all()
-    return [{"id": g.id, "gender_name": g.gender_name} for g in genders]
+    try:
+        result = await db.execute(select(Gender))
+        genders = result.scalars().all() or []
+        data = [{"id": g.id, "gender_name": g.gender_name} for g in genders]
+        return success_response(data=data, message="Fetched genders")
+    except Exception as e:
+        logger.error(f"Error in get_genders: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch genders", str(e)))
+
 
 # Switch User endpoints (for testing purposes)
 @router.post("/switch-users-admin-specific", response_model=dict)
 async def create_switch_user(
-    user_id: int,
-    switched_to_type: int,
+    payload: SwitchUserRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    new_switch = SwitchUser(
-        user_id=user_id,
-        switched_to_type=switched_to_type
-    )
-    db.add(new_switch)
-    await db.commit()
-    await db.refresh(new_switch)
-    return {
-        "id": new_switch.id,
-        "user_id": new_switch.user_id,
-        "switched_to_type": new_switch.switched_to_type,
-        "switched_at": new_switch.switched_at.isoformat()
-    }
+    try:
+        new_switch = SwitchUser(
+            user_id=payload.user_id,
+            switched_to_type=payload.switched_to_type
+        )
+        db.add(new_switch)
+        await db.commit()
+        await db.refresh(new_switch)
+        data = {
+            "id": new_switch.id,
+            "user_id": new_switch.user_id,
+            "switched_to_type": new_switch.switched_to_type,
+            "switched_at": new_switch.switched_at.isoformat()
+        }
+        return success_response(data=data, message="Switch user created")
+    except Exception as e:
+        logger.error(f"Error in create_switch_user: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to create switch user", str(e)))
+
 
 # Endpoint to get all switch user records (for testing purposes)
-@router.get("/switch-users-admin-specific/{user_id}", response_model=list[dict])
+@router.get("/switch-users-admin-specific/{user_id}", response_model=dict)
 async def get_switch_users(
     user_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user_id))
-    switch_users = result.scalars().all()
-    return [
-        {
-            "id": su.id,
-            "user_id": su.user_id,
-            "switched_to_type": su.switched_to_type,
-            "switched_at": su.switched_at.isoformat()
-        }
-        for su in switch_users
-    ]
+    try:
+        result = await db.execute(select(SwitchUser).where(SwitchUser.user_id == user_id))
+        switch_users = result.scalars().all() or []
+        data = [
+            {
+                "id": su.id,
+                "user_id": su.user_id,
+                "switched_to_type": su.switched_to_type,
+                "switched_at": su.switched_at.isoformat()
+            }
+            for su in switch_users
+        ]
+        return success_response(data=data, message="Fetched switch users")
+    except Exception as e:
+        logger.error(f"Error in get_switch_users: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch switch users", str(e)))
 
-@router.get("/statuses", response_model=list[dict])
+
+@router.get("/statuses", response_model=dict)
 async def get_request_status_master(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(RequestStatusMaster))
-    request_statuses = result.scalars().all()
-    return [{"id": rs.id, "name": rs.name} for rs in request_statuses]
+    try:
+        result = await db.execute(select(RequestStatusMaster))
+        request_statuses = result.scalars().all() or []
+        data = [{"id": rs.id, "name": rs.name} for rs in request_statuses]
+        return success_response(data=data, message="Fetched request statuses")
+    except Exception as e:
+        logger.error(f"Error in get_request_status_master: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch request statuses", str(e)))
 
-@router.get("/priorities", response_model=list[dict])
+
+@router.get("/priorities", response_model=dict)
 async def get_urgency_levels(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(UrgencyLevel))
-    urgency_levels = result.scalars().all()
-    return [{"id": ul.id, "name": ul.name} for ul in urgency_levels]
+    try:
+        result = await db.execute(select(UrgencyLevel))
+        urgency_levels = result.scalars().all() or []
+        data = [{"id": ul.id, "name": ul.name} for ul in urgency_levels]
+        return success_response(data=data, message="Fetched urgency levels")
+    except Exception as e:
+        logger.error(f"Error in get_urgency_levels: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch urgency levels", str(e)))
+
 
 @router.get("/receiver-requests/counts/{user_id}", response_model=dict)
 async def get_my_request_counts(
     user_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    query = text(""" 
-    SELECT 
-        status_id,
-        status_name,
-        SUM(total) AS total_count
-    FROM (
+    try:
+        query = text(""" 
+        SELECT 
+            status_id,
+            status_name,
+            SUM(total) AS total_count
+        FROM (
+            SELECT rsm.id AS status_id, rsm.name AS status_name, COUNT(sr.id) AS total
+            FROM request_status_master rsm
+            LEFT JOIN sports_requests sr 
+                ON sr.status_id = rsm.id AND sr.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(er.id)
+            FROM request_status_master rsm
+            LEFT JOIN education_requests er 
+                ON er.status_id = rsm.id AND er.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(mr.id)
+            FROM request_status_master rsm
+            LEFT JOIN medical_requests mr 
+                ON mr.status_id = rsm.id AND mr.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(sr.id)
+            FROM request_status_master rsm
+            LEFT JOIN shelter_requests sr 
+                ON sr.status_id = rsm.id AND sr.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(cr.id)
+            FROM request_status_master rsm
+            LEFT JOIN clothes_requests cr 
+                ON cr.status_id = rsm.id AND cr.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(frcf.id)
+            FROM request_status_master rsm
+            LEFT JOIN food_requests_cooked_food frcf 
+                ON frcf.status_id = rsm.id AND frcf.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(fdmr.id)
+            FROM request_status_master rsm
+            LEFT JOIN food_daily_meal_requests fdmr 
+                ON fdmr.status_id = rsm.id AND fdmr.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+            UNION ALL
+            SELECT rsm.id, rsm.name, COUNT(ger.id)
+            FROM request_status_master rsm
+            LEFT JOIN grocery_essentials_requests ger 
+                ON ger.status_id = rsm.id AND ger.user_id = :user_id
+            GROUP BY rsm.id, rsm.name
+        ) AS combined
+        GROUP BY status_id, status_name
+        ORDER BY status_id;
+        """)
 
-        SELECT rsm.id AS status_id, rsm.name AS status_name, COUNT(sr.id) AS total
-        FROM request_status_master rsm
-        LEFT JOIN sports_requests sr 
-            ON sr.status_id = rsm.id AND sr.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
+        result = await db.execute(query, {"user_id": user_id})
+        rows = result.fetchall() or []
 
-        UNION ALL
-
-        SELECT rsm.id, rsm.name, COUNT(er.id)
-        FROM request_status_master rsm
-        LEFT JOIN education_requests er 
-            ON er.status_id = rsm.id AND er.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-
-        UNION ALL
-
-        SELECT rsm.id, rsm.name, COUNT(mr.id)
-        FROM request_status_master rsm
-        LEFT JOIN medical_requests mr 
-            ON mr.status_id = rsm.id AND mr.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-
-        UNION ALL
-
-        SELECT rsm.id, rsm.name, COUNT(sr.id)
-        FROM request_status_master rsm
-        LEFT JOIN shelter_requests sr 
-            ON sr.status_id = rsm.id AND sr.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-
-        UNION ALL
-
-        SELECT rsm.id, rsm.name, COUNT(cr.id)
-        FROM request_status_master rsm
-        LEFT JOIN clothes_requests cr 
-            ON cr.status_id = rsm.id AND cr.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-        
-        UNION ALL
-        
-        SELECT rsm.id, rsm.name, COUNT(frcf.id)
-        FROM request_status_master rsm
-        LEFT JOIN food_requests_cooked_food frcf 
-            ON frcf.status_id = rsm.id AND frcf.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-        
-        UNION ALL
-        
-        SELECT rsm.id, rsm.name, COUNT(fdmr.id)
-        FROM request_status_master rsm
-        LEFT JOIN food_daily_meal_requests fdmr 
-            ON fdmr.status_id = rsm.id AND fdmr.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-        
-        UNION ALL
-        
-        SELECT rsm.id, rsm.name, COUNT(ger.id)
-        FROM request_status_master rsm
-        LEFT JOIN grocery_essentials_requests ger 
-            ON ger.status_id = rsm.id AND ger.user_id = :user_id
-        GROUP BY rsm.id, rsm.name
-        
-    ) AS combined
-
-    GROUP BY status_id, status_name
-    ORDER BY status_id;
-    """)
-
-    result = await db.execute(query, {"user_id": user_id})
-    rows = result.fetchall()
-
-    # ✅ Initialize all statuses
-    counts_map = {
-        "Pending": 0,
-        "Approved": 0,
-        "In Progress": 0,
-        "Completed": 0,
-        "Rejected": 0
-    }
-
-    # ✅ Fill values from DB
-    for row in rows:
-        counts_map[row.status_name] = row.total_count
-
-    return {
-        "user_id": user_id,
-        "counts": {
-            "total": sum(counts_map.values()),
-            "pending": counts_map["Pending"],
-            "approved": counts_map["Approved"],
-            "in_progress": counts_map["In Progress"],
-            "completed": counts_map["Completed"],
-            "rejected": counts_map["Rejected"],
+        counts_map = {
+            "Pending": 0,
+            "Approved": 0,
+            "In Progress": 0,
+            "Completed": 0,
+            "Rejected": 0
         }
-    }
+
+        for row in rows:
+            counts_map[row.status_name] = row.total_count
+
+        data = {
+            "user_id": user_id,
+            "counts": {
+                "total": sum(counts_map.values()),
+                "pending": counts_map["Pending"],
+                "approved": counts_map["Approved"],
+                "in_progress": counts_map["In Progress"],
+                "completed": counts_map["Completed"],
+                "rejected": counts_map["Rejected"],
+            }
+        }
+        return success_response(data=data, message="Fetched request counts")
+    except Exception as e:
+        logger.error(f"Error in get_my_request_counts: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=error_response("Failed to fetch request counts", str(e)))
+
 
 @router.get("/receiver-requests/user-filled", response_model=dict)
 async def get_all_user_data(
-    user_id: Optional[int] = None,
-    status_id: Optional[int] = None,
-    category_id: Optional[int] = None,
+    user_id: Optional[int] = Query(None, gt=0),
+    status_id: Optional[int] = Query(None, gt=0),
+    category_id: Optional[int] = Query(None, gt=0),
     db: AsyncSession = Depends(get_db),
 ):
-
     def build_where_clause_multi(
-    user_id, status_id, category_id,
-    user_col, status_col,
-    category_col=None,
-    sub_category_col=None
+        user_id, status_id, category_id,
+        user_col, status_col,
+        category_col=None,
+        sub_category_col=None
     ):
         where = []
         params = {}
@@ -320,7 +388,6 @@ async def get_all_user_data(
             params["status_id"] = status_id
 
         if category_id is not None:
-
             # 👉 FOOD CATEGORY
             if sub_category_col:
                 if category_id == 1:
@@ -328,7 +395,6 @@ async def get_all_user_data(
                 else:
                     # ❗ Block food if category != 1
                     where.append("1=0")
-
             # 👉 OTHER CATEGORIES
             elif category_col:
                 where.append(f"{category_col} = :category_id")
@@ -338,9 +404,9 @@ async def get_all_user_data(
 
     # SHELTER
     shelter_where, shelter_params = build_where_clause_multi(
-    user_id, status_id, category_id,
-    "sr.user_id", "sr.status_id",
-    category_col="sr.category_id")
+        user_id, status_id, category_id,
+        "sr.user_id", "sr.status_id",
+        category_col="sr.category_id")
     shelter_q = await db.execute(text(f"""
     SELECT 
         sr.id,
@@ -678,6 +744,7 @@ async def get_all_user_data(
             'special_need', 'staying_type', 'requirement_type', 'duration_option',
             'damage_document_filepath', 'verification_document_filepath'
         ]
+
         child = {k: row_dict[k] for k in child_fields if k in row_dict}
         if any(child.values()):
             shelter_map[req_id]['beneficiaries'].append(child)
@@ -702,6 +769,7 @@ async def get_all_user_data(
         child_fields = [
             'person_name', 'age_group', 'gender', 'playing_level', 'achievement', 'amount_requested', 'event_date', 'institution_name', 'phone', 'verification_document_filepath', 'achievement_document_filepath', 'sports_names', 'support_type_names'
         ]
+
         child = {k: row_dict[k] for k in child_fields if k in row_dict}
         if any(child.values()):
             sports_map[req_id]['participants'].append(child)
@@ -726,6 +794,7 @@ async def get_all_user_data(
         child_fields = [
             'patient_name', 'age', 'gender', 'medical_condition','hospital_name','hospital_address','doctor_name','financial_information','funds_needed_by','amount_paid','amount_requested','contact_information','emergency_contact_name','blood_group','medical_category','support_type_names','verification_document_filepath','prescription_document_filepath','estimation_document_filepath',
         ]
+
         child = {k: row_dict[k] for k in child_fields if k in row_dict}
         if any(child.values()):
             medical_map[req_id]['patients'].append(child)
@@ -750,6 +819,7 @@ async def get_all_user_data(
         child_fields = [
             'person_name', 'age', 'grade', 'education_support_type', 'amount_requested', 'institution_name', 'institution_address', 'contact_person_name', 'contact_person_phone', 'verification_document_filepath', 'achievement_document_filepath'
         ]
+
         child = {k: row_dict[k] for k in child_fields if k in row_dict}
         if any(child.values()):
             education_map[req_id]['students'].append(child)
@@ -774,6 +844,7 @@ async def get_all_user_data(
         child_fields = [
             'person_name', 'age_group', 'gender', 'clothing_category', 'beneficiary_urgency', 'need_by_date', 'verification_document_filepath', 'achievement_document_filepath'
         ]
+
         child = {k: row_dict[k] for k in child_fields if k in row_dict}
         if any(child.values()):
             clothes_map[req_id]['items'].append(child)
@@ -802,7 +873,9 @@ async def get_all_user_data(
         if any(child.values()):
             grocery_map[req_id]['items'].append(child)
 
-    return {
+        # end for
+
+    return success_response(data={
         "shelter_requests": shelter_requests,
         "sports_requests": sports_requests,
         "medical_requests": medical_requests,
@@ -811,12 +884,12 @@ async def get_all_user_data(
         "food_requests_cooked_food": [dict(row._mapping) for row in cooked],
         "food_daily_meal_requests": [dict(row._mapping) for row in daily],
         "grocery_essentials_requests": grocery_requests,
-    }
+    }, message="Fetched all user data")
 
-@router.put("/people-in-need/update-and-get")
+
+@router.put("/people-in-need/update-and-get", response_model=dict)
 async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
     try:
-        # ---------------- UPDATE QUERY ----------------
         update_query = text("""
         UPDATE people_in_need pin
         JOIN (
@@ -829,36 +902,30 @@ async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
                 FROM sports_request_beneficiaries sb
                 JOIN sports_requests sr ON sb.sports_request_id = sr.id
                 WHERE sr.status_id = 2
-
                 UNION ALL
                 SELECT 5, sh.amount_requested
                 FROM shelter_beneficiaries sh
                 JOIN shelter_requests sr ON sh.shelter_request_id = sr.id
                 WHERE sr.status_id = 2
-
                 UNION ALL
                 SELECT 3, es.amount_requested
                 FROM education_request_students es
                 JOIN education_requests er ON es.education_request_id = er.id
                 WHERE er.status_id = 2
-
                 UNION ALL
                 SELECT 4, p.amount_requested
                 FROM patients p
                 JOIN medical_requests mr ON p.medical_request_id = mr.id
                 WHERE mr.status_id = 2
-
                 UNION ALL
                 SELECT 2, cb.amount_requested
                 FROM clothes_beneficiaries cb
                 JOIN clothes_requests cr ON cb.clothes_request_id = cr.id
                 WHERE cr.status_id = 2
-
                 UNION ALL
                 SELECT 1, ge.amount_requested
                 FROM grocery_essentials_requests ge
                 WHERE ge.status_id = 2
-
                 UNION ALL
                 SELECT 1, fd.amount_requested
                 FROM food_daily_meal_requests fd
@@ -873,7 +940,6 @@ async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
 
         await db.execute(update_query)
 
-        # ---------------- SELECT QUERY ----------------
         select_query = text("""
         SELECT 
             pin.id,
@@ -891,19 +957,13 @@ async def update_and_get_people_in_need(db: AsyncSession = Depends(get_db)):
         """)
 
         result = await db.execute(select_query)
-        rows = result.fetchall()
+        rows = result.fetchall() or []
 
         await db.commit()
 
-        # Convert to JSON
         data = [dict(row._mapping) for row in rows]
-
-        return {
-            "status": "success",
-            "count": len(data),
-            "data": data
-        }
-
+        return success_response(data=data, message="Updated and fetched people in need")
     except Exception as e:
+        logger.error(f"Error in update_and_get_people_in_need: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=error_response("Failed to update/fetch people in need", str(e)))

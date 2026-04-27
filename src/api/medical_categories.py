@@ -1,4 +1,5 @@
 from http.client import HTTPException
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,54 +17,72 @@ from src.schemas import MedicalRequestPayload
 from src.schemas.MedicalRequestPayload import MedicalRequestPayload
 from src.core.dependencies import get_current_user_id
 
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 router = APIRouter(
     prefix="/api/v1/medical",
     tags=["Medical Categories"],
     # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/medical-categories", response_model=list[dict])
+@router.get("/medical-categories", response_model=dict)
 async def get_medical_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(MedicalRequestCategory))
-    medical_categories = result.scalars().all()
-    return [
-        {"id": mc.id, "name": mc.name} for mc in medical_categories
-    ]
+    try:
+        result = await db.execute(select(MedicalRequestCategory))
+        medical_categories = result.scalars().all()
+        return success_response(data=[{"id": mc.id, "name": mc.name} for mc in medical_categories], message="Fetched medical categories")
+    except Exception as e:
+        logger.error(f"Error in get_medical_categories: {e}")
+        return error_response(message="Failed to fetch medical categories", error=str(e))
 
-@router.get("/support-types", response_model=list[dict])
+@router.get("/support-types", response_model=dict)
 async def get_support_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(MedicalSupportType))
-    support_types = result.scalars().all()
-    return [
-        {"id": st.id, "name": st.name} for st in support_types
-    ]
+    try:
+        result = await db.execute(select(MedicalSupportType))
+        support_types = result.scalars().all()
+        return success_response(data=[{"id": st.id, "name": st.name} for st in support_types], message="Fetched support types")
+    except Exception as e:
+        logger.error(f"Error in get_support_types: {e}")
+        return error_response(message="Failed to fetch support types", error=str(e))
 
-@router.get("/blood-groups", response_model=list[dict])
+@router.get("/blood-groups", response_model=dict)
 async def get_blood_groups(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(BloodGroup))
-    blood_groups = result.scalars().all()
-    return [
-        {"id": bg.id, "name": bg.name} for bg in blood_groups
-    ]
+    try:
+        result = await db.execute(select(BloodGroup))
+        blood_groups = result.scalars().all()
+        return success_response(data=[{"id": bg.id, "name": bg.name} for bg in blood_groups], message="Fetched blood groups")
+    except Exception as e:
+        logger.error(f"Error in get_blood_groups: {e}")
+        return error_response(message="Failed to fetch blood groups", error=str(e))
 
 
-@router.post("/medical-request")
+@router.post("/medical-request", response_model=dict)
 async def create_medical_request(
     payload: MedicalRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-
         async def _exists(model, value: int):
             result = await db.execute(select(model.id).where(model.id == value))
             return result.scalar_one_or_none() is not None
 
         # ✅ Validate main
         if not await _exists(User, payload.user_id):
-            raise HTTPException(400, "Invalid user_id")
+            return error_response(message="Invalid user_id")
 
         if not await _exists(RequestCategory, payload.category_id):
-            raise HTTPException(400, "Invalid category_id")
+            return error_response(message="Invalid category_id")
 
         # ✅ Create request
         new_request = MedicalRequest(
@@ -79,7 +98,6 @@ async def create_medical_request(
 
         # ✅ Patients
         for i, p in enumerate(payload.patients, start=1):
-
             # 🔥 attachments
             attachment_id = None
             prescription_id = None
@@ -150,10 +168,9 @@ async def create_medical_request(
             )
 
         await db.commit()
-
-        return {"message": "Medical request created", "request_id": new_request.id}
-
+        return success_response(data={"request_id": new_request.id}, message="Medical request created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(500, str(e))
+        logger.error(f"Error in create_medical_request: {e}")
+        return error_response(message="Failed to create medical request", error=str(e))
     

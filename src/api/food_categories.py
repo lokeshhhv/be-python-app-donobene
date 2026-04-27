@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -21,6 +21,19 @@ from src.schemas.FoodRequestPayload import FoodSpecialNeedResponse
 from src.schemas.FoodRequestPayload import FoodMealFrequencyResponse
 from src.schemas.FoodRequestPayload import FoodDurationResponse
 
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
+
 # 🔹 GET APIs
 router = APIRouter(
     prefix="/api/v1/food", 
@@ -28,139 +41,179 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("/food-types", response_model=list[FoodTypeResponse])
+@router.get("/food-types", response_model=dict)
 async def get_food_types(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodType))
-    food_types = result.scalars().all()
-    return food_types
+    try:
+        result = await db.execute(select(FoodType))
+        food_types = result.scalars().all()
+        return success_response(data=food_types, message="Fetched food types")
+    except Exception as e:
+        logger.error(f"Error in get_food_types: {e}")
+        return error_response(message="Failed to fetch food types", error=str(e))
 
 
-@router.get("/meal-types", response_model=list[FoodMealTypeResponse])
+@router.get("/meal-types", response_model=dict)
 async def get_meal_types(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodMealType))
-    meal_types = result.scalars().all()
-    return meal_types
+    try:
+        result = await db.execute(select(FoodMealType))
+        meal_types = result.scalars().all()
+        return success_response(data=meal_types, message="Fetched meal types")
+    except Exception as e:
+        logger.error(f"Error in get_meal_types: {e}")
+        return error_response(message="Failed to fetch meal types", error=str(e))
 
 
-@router.get("/time-slots", response_model=list[FoodTimeSlotResponse])
+@router.get("/time-slots", response_model=dict)
 async def get_time_slots(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodTimeSlot))
-    time_slots = result.scalars().all()
-    return time_slots
+    try:
+        result = await db.execute(select(FoodTimeSlot))
+        time_slots = result.scalars().all()
+        return success_response(data=time_slots, message="Fetched time slots")
+    except Exception as e:
+        logger.error(f"Error in get_time_slots: {e}")
+        return error_response(message="Failed to fetch time slots", error=str(e))
 
 
-@router.get("/urgency-levels", response_model=list[FoodUrgencyLevelResponse])
+@router.get("/urgency-levels", response_model=dict)
 async def get_urgency_levels(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodUrgencyLevel))
-    urgency_levels = result.scalars().all()
-    return urgency_levels
+    try:
+        result = await db.execute(select(FoodUrgencyLevel))
+        urgency_levels = result.scalars().all()
+        return success_response(data=urgency_levels, message="Fetched urgency levels")
+    except Exception as e:
+        logger.error(f"Error in get_urgency_levels: {e}")
+        return error_response(message="Failed to fetch urgency levels", error=str(e))
 
 
-@router.get("/delivery-required", response_model=list[DeliveryRequiredResponse])
+@router.get("/delivery-required", response_model=dict)
 async def get_delivery_required(db: Session = Depends(get_db)):
-    result = await db.execute(select(DeliveryRequired))
-    delivery_required = result.scalars().all()
-    return delivery_required
+    try:
+        result = await db.execute(select(DeliveryRequired))
+        delivery_required = result.scalars().all()
+        return success_response(data=delivery_required, message="Fetched delivery required options")
+    except Exception as e:
+        logger.error(f"Error in get_delivery_required: {e}")
+        return error_response(message="Failed to fetch delivery required options", error=str(e))
 
 # 🔹 AGE GROUPS
-@router.get("/age-groups", response_model=list[FoodAgeGroupResponse])
+@router.get("/age-groups", response_model=dict)
 async def get_age_groups(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodAgeGroup))
-    age_groups = result.scalars().all()
-    return age_groups
+    try:
+        result = await db.execute(select(FoodAgeGroup))
+        age_groups = result.scalars().all()
+        return success_response(data=age_groups, message="Fetched age groups")
+    except Exception as e:
+        logger.error(f"Error in get_age_groups: {e}")
+        return error_response(message="Failed to fetch age groups", error=str(e))
 
 
 # 🔹 SPECIAL NEEDS
-@router.get("/special-needs", response_model=list[FoodSpecialNeedResponse])
+@router.get("/special-needs", response_model=dict)
 async def get_special_needs(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodSpecialNeed))
-    special_needs = result.scalars().all()
-    return special_needs
+    try:
+        result = await db.execute(select(FoodSpecialNeed))
+        special_needs = result.scalars().all()
+        return success_response(data=special_needs, message="Fetched special needs")
+    except Exception as e:
+        logger.error(f"Error in get_special_needs: {e}")
+        return error_response(message="Failed to fetch special needs", error=str(e))
 
 
 # 🔹 MEAL FREQUENCY
-@router.get("/meal-frequencies", response_model=list[FoodMealFrequencyResponse])
+@router.get("/meal-frequencies", response_model=dict)
 async def get_meal_frequencies(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodMealFrequency))
-    meal_frequencies = result.scalars().all()
-    return meal_frequencies
+    try:
+        result = await db.execute(select(FoodMealFrequency))
+        meal_frequencies = result.scalars().all()
+        return success_response(data=meal_frequencies, message="Fetched meal frequencies")
+    except Exception as e:
+        logger.error(f"Error in get_meal_frequencies: {e}")
+        return error_response(message="Failed to fetch meal frequencies", error=str(e))
 
 
 # 🔹 DURATION
-@router.get("/durations", response_model=list[FoodDurationResponse])
+@router.get("/durations", response_model=dict)
 async def get_durations(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodDuration))
-    durations = result.scalars().all()
-    return durations
+    try:
+        result = await db.execute(select(FoodDuration))
+        durations = result.scalars().all()
+        return success_response(data=durations, message="Fetched durations")
+    except Exception as e:
+        logger.error(f"Error in get_durations: {e}")
+        return error_response(message="Failed to fetch durations", error=str(e))
 
 # 🔹 GROCERY UNIT OPTIONS
-@router.get("/grocery-units", response_model=list[GroceryUnitOptionResponse])
+@router.get("/grocery-units", response_model=dict)
 async def get_grocery_units(db: Session = Depends(get_db)):
-    result = await db.execute(select(GroceryUnitOption))
-    grocery_units = result.scalars().all()
-    return grocery_units
+    try:
+        result = await db.execute(select(GroceryUnitOption))
+        grocery_units = result.scalars().all()
+        return success_response(data=grocery_units, message="Fetched grocery units")
+    except Exception as e:
+        logger.error(f"Error in get_grocery_units: {e}")
+        return error_response(message="Failed to fetch grocery units", error=str(e))
 
 
 # 🔹 PRIORITY LEVELS
-@router.get("/grocery-priority-levels", response_model=list[GroceryPriorityLevelResponse])
+@router.get("/grocery-priority-levels", response_model=dict)
 async def get_priority_levels(db: Session = Depends(get_db)):
-    result = await db.execute(select(GroceryPriorityLevel))
-    priority_levels = result.scalars().all()
-    return priority_levels
+    try:
+        result = await db.execute(select(GroceryPriorityLevel))
+        priority_levels = result.scalars().all()
+        return success_response(data=priority_levels, message="Fetched grocery priority levels")
+    except Exception as e:
+        logger.error(f"Error in get_priority_levels: {e}")
+        return error_response(message="Failed to fetch grocery priority levels", error=str(e))
 
 
 # 🔹 GROCERY ITEMS
-@router.get("/grocery-items", response_model=list[GroceryItemMasterResponse])
+@router.get("/grocery-items", response_model=dict)
 async def get_grocery_items(db: Session = Depends(get_db)):
-    result = await db.execute(select(GroceryItemMaster))
-    grocery_items = result.scalars().all()
-    return grocery_items
+    try:
+        result = await db.execute(select(GroceryItemMaster))
+        grocery_items = result.scalars().all()
+        return success_response(data=grocery_items, message="Fetched grocery items")
+    except Exception as e:
+        logger.error(f"Error in get_grocery_items: {e}")
+        return error_response(message="Failed to fetch grocery items", error=str(e))
 
-@router.get("/food-request-categories", response_model=list[FoodRequestCategoryResponse])
+@router.get("/food-request-categories", response_model=dict)
 async def get_food_request_categories(db: Session = Depends(get_db)):
-    result = await db.execute(select(FoodRequestCategory))
-    food_request_categories = result.scalars().all()
-    return food_request_categories
+    try:
+        result = await db.execute(select(FoodRequestCategory))
+        food_request_categories = result.scalars().all()
+        return success_response(data=food_request_categories, message="Fetched food request categories")
+    except Exception as e:
+        logger.error(f"Error in get_food_request_categories: {e}")
+        return error_response(message="Failed to fetch food request categories", error=str(e))
 
-@router.post("/food-cooked", response_model=list[CookedFoodResponse])
+@router.post("/food-cooked", response_model=dict)
 async def create_cooked_food(cooked_food: CookedFoodCreate, db: Session = Depends(get_db)):
-    cooked_food_data = cooked_food.dict(exclude={"user_id"})
-    new_cooked_food = FoodRequestsCookedFood(user_id=cooked_food.user_id, **cooked_food_data)
-    db.add(new_cooked_food)
-    await db.commit()
-    await db.refresh(new_cooked_food)
-    return [new_cooked_food]
+    try:
+        cooked_food_data = cooked_food.dict(exclude={"user_id"})
+        new_cooked_food = FoodRequestsCookedFood(user_id=cooked_food.user_id, **cooked_food_data)
+        db.add(new_cooked_food)
+        await db.commit()
+        await db.refresh(new_cooked_food)
+        return success_response(data={"cooked_food": new_cooked_food}, message="Cooked food created successfully")
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error in create_cooked_food: {e}")
+        return error_response(message="Failed to create cooked food", error=str(e))
 
-# @router.get("/food-cooked", response_model=list[CookedFoodResponse])
-# async def get_cooked_foods(user_id: Optional[int] = None, db: Session = Depends(get_db)):
-#     query = select(FoodRequestsCookedFood)
-
-#     if user_id:
-#         query = query.where(FoodRequestsCookedFood.user_id == user_id)
-
-#     result = await db.execute(query)
-#     cooked_foods = result.scalars().all()
-#     return cooked_foods
-
-@router.post("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
+@router.post("/daily-meal", response_model=dict)
 async def create_daily_meal_request(daily_meal_request: FoodDailyMealRequestPayload, db: Session = Depends(get_db)):
-    daily_meal_request_data = daily_meal_request.dict(exclude={"user_id"})
-    new_daily_meal_request = FoodDailyMealRequest(user_id=daily_meal_request.user_id, **daily_meal_request_data)
-    db.add(new_daily_meal_request)
-    await db.commit()
-    await db.refresh(new_daily_meal_request)
-    return [new_daily_meal_request]
-
-# @router.get("/daily-meal", response_model=list[FoodDailyMealRequestPayload])
-# async def get_daily_meal_requests( user_id: Optional[int] = None,db: Session = Depends(get_db)):
-#     query = select(FoodDailyMealRequest)
-
-#     if user_id:
-#         query = query.where(FoodDailyMealRequest.user_id == user_id)
-
-#     result = await db.execute(query)
-#     daily_meal_requests = result.scalars().all()
-#     return daily_meal_requests
+    try:
+        daily_meal_request_data = daily_meal_request.dict(exclude={"user_id"})
+        new_daily_meal_request = FoodDailyMealRequest(user_id=daily_meal_request.user_id, **daily_meal_request_data)
+        db.add(new_daily_meal_request)
+        await db.commit()
+        await db.refresh(new_daily_meal_request)
+        return success_response(data={"daily_meal_request": new_daily_meal_request}, message="Daily meal request created successfully")
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error in create_daily_meal_request: {e}")
+        return error_response(message="Failed to create daily meal request", error=str(e))
 
 @router.post("/grocery-essential", response_model=dict)
 async def create_grocery_request(
@@ -199,13 +252,9 @@ async def create_grocery_request(
             )
 
         await db.commit()
-
-        return {
-            "message": "Grocery request created successfully",
-            "request_id": new_request.id
-        }
-
+        return success_response(data={"request_id": new_request.id}, message="Grocery request created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in create_grocery_request: {e}")
+        return error_response(message="Failed to create grocery request", error=str(e))
 

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -12,6 +12,18 @@ from src.models.education import EducationSupportDocument
 from src.models.education import EducationSupportType
 from src.schemas.EducationRequestPayload import EducationRequestPayload
 from src.core.dependencies import get_current_user_id
+import logging
+
+# Configure logging
+logger = logging.getLogger("api.types")
+logging.basicConfig(level=logging.INFO)
+
+# Global response helpers
+def success_response(data: Any = None, message: str = "Success"):
+    return {"success": True, "message": message, "data": data if data is not None else {}}
+
+def error_response(message: str = "Error", error: Any = None):
+    return {"success": False, "message": message, "error": error}
 
 router = APIRouter(
     prefix="/api/v1/education",
@@ -19,40 +31,43 @@ router = APIRouter(
     # dependencies=[Depends(get_current_user_id)],
 )
 
-@router.get("/support-documents", response_model=list[dict])
+@router.get("/support-documents", response_model=dict)
 async def get__support_documents(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(EducationSupportDocument))
-    support_documents = result.scalars().all()
-    return [
-        {"id": doc.id, "name": doc.name} for doc in support_documents
-    ]
+    try:
+        result = await db.execute(select(EducationSupportDocument))
+        support_documents = result.scalars().all()
+        return success_response(data=[{"id": doc.id, "name": doc.name} for doc in support_documents], message="Fetched support documents")
+    except Exception as e:
+        logger.error(f"Error in get__support_documents: {e}")
+        return error_response(message="Failed to fetch support documents", error=str(e))
 
-@router.get("/support-types", response_model=list[dict])
+@router.get("/support-types", response_model=dict)
 async def get_support_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(EducationSupportType))
-    support_types = result.scalars().all()
-    return [
-        {"id": st.id, "name": st.name} for st in support_types
-    ]
+    try:
+        result = await db.execute(select(EducationSupportType))
+        support_types = result.scalars().all()
+        return success_response(data=[{"id": st.id, "name": st.name} for st in support_types], message="Fetched support types")
+    except Exception as e:
+        logger.error(f"Error in get_support_types: {e}")
+        return error_response(message="Failed to fetch support types", error=str(e))
 
 
-@router.post("/education-request")
+@router.post("/education-request", response_model=dict)
 async def create_education_request(
     payload: EducationRequestPayload,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-
         async def _exists(model, value: int):
             result = await db.execute(select(model.id).where(model.id == value))
             return result.scalar_one_or_none() is not None
 
         # ✅ validate
         if not await _exists(User, payload.user_id):
-            raise HTTPException(400, "Invalid user_id")
+            return error_response(message="Invalid user_id")
 
         if not await _exists(RequestCategory, payload.category_id):
-            raise HTTPException(400, "Invalid category_id")
+            return error_response(message="Invalid category_id")
 
         # ✅ create request
         new_request = EducationRequest(
@@ -68,9 +83,8 @@ async def create_education_request(
 
         # ✅ students
         for i, stu in enumerate(payload.students, start=1):
-
             if not await _exists(EducationSupportType, stu.education_support_type_id):
-                raise HTTPException(400, f"Invalid education_support_type_id at students[{i}]")
+                return error_response(message=f"Invalid education_support_type_id at students[{i}]")
 
             verification_id = None
             support_doc_id = None
@@ -120,9 +134,8 @@ async def create_education_request(
             )
 
         await db.commit()
-
-        return {"message": "education request created successfully", "request_id": new_request.id}
-
+        return success_response(data={"request_id": new_request.id}, message="Education request created successfully")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(500, str(e))
+        logger.error(f"Error in create_education_request: {e}")
+        return error_response(message="Failed to create education request", error=str(e))
