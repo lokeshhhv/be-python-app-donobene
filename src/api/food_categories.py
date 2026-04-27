@@ -46,7 +46,10 @@ async def get_food_types(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodType))
         food_types = result.scalars().all()
-        return success_response(data=food_types, message="Fetched food types")
+        return success_response(
+            data=[{"id": ft.id, "name": ft.name} for ft in food_types],
+            message="Fetched food types"
+        )
     except Exception as e:
         logger.error(f"Error in get_food_types: {e}")
         return error_response(message="Failed to fetch food types", error=str(e))
@@ -57,7 +60,10 @@ async def get_meal_types(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodMealType))
         meal_types = result.scalars().all()
-        return success_response(data=meal_types, message="Fetched meal types")
+        return success_response(
+            data=[{"id": mt.id, "name": mt.name} for mt in meal_types],
+            message="Fetched meal types"
+        )
     except Exception as e:
         logger.error(f"Error in get_meal_types: {e}")
         return error_response(message="Failed to fetch meal types", error=str(e))
@@ -68,7 +74,10 @@ async def get_time_slots(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodTimeSlot))
         time_slots = result.scalars().all()
-        return success_response(data=time_slots, message="Fetched time slots")
+        return success_response(
+            data=[{"id": ts.id, "name": ts.name} for ts in time_slots],
+            message="Fetched time slots"
+        )
     except Exception as e:
         logger.error(f"Error in get_time_slots: {e}")
         return error_response(message="Failed to fetch time slots", error=str(e))
@@ -79,7 +88,10 @@ async def get_urgency_levels(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodUrgencyLevel))
         urgency_levels = result.scalars().all()
-        return success_response(data=urgency_levels, message="Fetched urgency levels")
+        return success_response(
+            data=[{"id": ul.id, "name": ul.name} for ul in urgency_levels],
+            message="Fetched urgency levels"
+        )
     except Exception as e:
         logger.error(f"Error in get_urgency_levels: {e}")
         return error_response(message="Failed to fetch urgency levels", error=str(e))
@@ -90,7 +102,10 @@ async def get_delivery_required(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(DeliveryRequired))
         delivery_required = result.scalars().all()
-        return success_response(data=delivery_required, message="Fetched delivery required options")
+        return success_response(
+            data=[{"id": dr.id, "name": dr.name} for dr in delivery_required],
+            message="Fetched delivery required options"
+        )
     except Exception as e:
         logger.error(f"Error in get_delivery_required: {e}")
         return error_response(message="Failed to fetch delivery required options", error=str(e))
@@ -101,7 +116,10 @@ async def get_age_groups(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodAgeGroup))
         age_groups = result.scalars().all()
-        return success_response(data=age_groups, message="Fetched age groups")
+        return success_response(
+            data=[{"id": ag.id, "name": ag.name} for ag in age_groups],
+            message="Fetched age groups"
+        )
     except Exception as e:
         logger.error(f"Error in get_age_groups: {e}")
         return error_response(message="Failed to fetch age groups", error=str(e))
@@ -113,7 +131,10 @@ async def get_special_needs(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodSpecialNeed))
         special_needs = result.scalars().all()
-        return success_response(data=special_needs, message="Fetched special needs")
+        return success_response(
+            data=[{"id": sn.id, "name": sn.name} for sn in special_needs],
+            message="Fetched special needs"
+        )
     except Exception as e:
         logger.error(f"Error in get_special_needs: {e}")
         return error_response(message="Failed to fetch special needs", error=str(e))
@@ -125,7 +146,10 @@ async def get_meal_frequencies(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodMealFrequency))
         meal_frequencies = result.scalars().all()
-        return success_response(data=meal_frequencies, message="Fetched meal frequencies")
+        return success_response(
+            data=[{"id": mf.id, "name": mf.name} for mf in meal_frequencies],
+            message="Fetched meal frequencies"
+        )
     except Exception as e:
         logger.error(f"Error in get_meal_frequencies: {e}")
         return error_response(message="Failed to fetch meal frequencies", error=str(e))
@@ -137,7 +161,10 @@ async def get_durations(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodDuration))
         durations = result.scalars().all()
-        return success_response(data=durations, message="Fetched durations")
+        return success_response(
+            data=[{"id": d.id, "name": d.name} for d in durations],
+            message="Fetched durations"
+        )
     except Exception as e:
         logger.error(f"Error in get_durations: {e}")
         return error_response(message="Failed to fetch durations", error=str(e))
@@ -148,7 +175,10 @@ async def get_grocery_units(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(GroceryUnitOption))
         grocery_units = result.scalars().all()
-        return success_response(data=grocery_units, message="Fetched grocery units")
+        return success_response(
+            data=[{"id": unit.id, "name": unit.name} for unit in grocery_units],
+            message="Fetched grocery units"
+        )
     except Exception as e:
         logger.error(f"Error in get_grocery_units: {e}")
         return error_response(message="Failed to fetch grocery units", error=str(e))
@@ -160,7 +190,10 @@ async def get_priority_levels(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(GroceryPriorityLevel))
         priority_levels = result.scalars().all()
-        return success_response(data=priority_levels, message="Fetched grocery priority levels")
+        return success_response(
+            data=[{"id": level.id, "name": level.name} for level in priority_levels],
+            message="Fetched grocery priority levels"
+        )
     except Exception as e:
         logger.error(f"Error in get_priority_levels: {e}")
         return error_response(message="Failed to fetch grocery priority levels", error=str(e))
@@ -172,7 +205,10 @@ async def get_grocery_items(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(GroceryItemMaster))
         grocery_items = result.scalars().all()
-        return success_response(data=grocery_items, message="Fetched grocery items")
+        return success_response(
+            data=[{"id": item.id, "name": item.name} for item in grocery_items],
+            message="Fetched grocery items"
+        )
     except Exception as e:
         logger.error(f"Error in get_grocery_items: {e}")
         return error_response(message="Failed to fetch grocery items", error=str(e))
@@ -182,7 +218,20 @@ async def get_food_request_categories(db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(FoodRequestCategory))
         food_request_categories = result.scalars().all()
-        return success_response(data=food_request_categories, message="Fetched food request categories")
+        return success_response(
+            data=[
+                {
+                    "id": c.id,
+                    "name": c.food_type,
+                    "description": c.food_type_description,
+                    "icon": c.icon,
+                    "size": c.size,
+                    "value": c.value
+                }
+                for c in food_request_categories
+            ],
+            message="Fetched food request categories"
+        )
     except Exception as e:
         logger.error(f"Error in get_food_request_categories: {e}")
         return error_response(message="Failed to fetch food request categories", error=str(e))
@@ -195,7 +244,7 @@ async def create_cooked_food(cooked_food: CookedFoodCreate, db: Session = Depend
         db.add(new_cooked_food)
         await db.commit()
         await db.refresh(new_cooked_food)
-        return success_response(data={"cooked_food": new_cooked_food}, message="Cooked food created successfully")
+        return success_response(data={"cooked_food": {"id": new_cooked_food.id, "name": new_cooked_food.name}}, message="Cooked food created successfully")
     except Exception as e:
         await db.rollback()
         logger.error(f"Error in create_cooked_food: {e}")
@@ -209,7 +258,7 @@ async def create_daily_meal_request(daily_meal_request: FoodDailyMealRequestPayl
         db.add(new_daily_meal_request)
         await db.commit()
         await db.refresh(new_daily_meal_request)
-        return success_response(data={"daily_meal_request": new_daily_meal_request}, message="Daily meal request created successfully")
+        return success_response(data={"daily_meal_request": {"id": new_daily_meal_request.id, "name": new_daily_meal_request.name}}, message="Daily meal request created successfully")
     except Exception as e:
         await db.rollback()
         logger.error(f"Error in create_daily_meal_request: {e}")
