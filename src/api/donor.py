@@ -274,7 +274,10 @@ async def get_stemcell_donations(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(DonorStemcellDonation))
         donations = result.scalars().all()
-        return success_response(data=donations, message="Fetched stemcell donations")
+        return success_response(
+            data=[{"id": d.id, "name": d.name} for d in donations],
+            message="Fetched stemcell donations"
+        )
     except Exception as e:
         logger.error(f"Error in get_stemcell_donations: {e}")
         return error_response(message="Failed to fetch stemcell donations", error=str(e))
@@ -284,7 +287,10 @@ async def get_tissue_donations(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(DonorTissueDonation))
         donations = result.scalars().all()
-        return success_response(data=donations, message="Fetched tissue donations")
+        return success_response(
+            data=[{"id": d.id, "name": d.name} for d in donations],
+            message="Fetched tissue donations"
+        )
     except Exception as e:
         logger.error(f"Error in get_tissue_donations: {e}")
         return error_response(message="Failed to fetch tissue donations", error=str(e))
@@ -294,7 +300,10 @@ async def get_organ_donations(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(DonorOrganDonation))
         donations = result.scalars().all()
-        return success_response(data=donations, message="Fetched organ donations")
+        return success_response(
+            data=[{"id": d.id, "name": d.name} for d in donations],
+            message="Fetched organ donations"
+        )
     except Exception as e:
         logger.error(f"Error in get_organ_donations: {e}")
         return error_response(message="Failed to fetch organ donations", error=str(e))
@@ -304,7 +313,10 @@ async def get_consent_types(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(DonorConsentType))
         consent_types = result.scalars().all()
-        return success_response(data=consent_types, message="Fetched consent types")
+        return success_response(
+            data=[{"id": c.id, "name": c.name} for c in consent_types],
+            message="Fetched consent types"
+        )
     except Exception as e:
         logger.error(f"Error in get_consent_types: {e}")
         return error_response(message="Failed to fetch consent types", error=str(e))
@@ -314,7 +326,10 @@ async def get_availability_types(db: AsyncSession = Depends(get_db)):
     try:
         result = await db.execute(select(DonorAvailabilityType))
         availability_types = result.scalars().all()
-        return success_response(data=availability_types, message="Fetched availability types")
+        return success_response(
+            data=[{"id": a.id, "name": a.name} for a in availability_types],
+            message="Fetched availability types"
+        )
     except Exception as e:
         logger.error(f"Error in get_availability_types: {e}")
         return error_response(message="Failed to fetch availability types", error=str(e))
